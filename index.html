@@ -1439,8 +1439,8 @@ const OBJ_BADGE={customer:"Customer",lead:"Lead",quote:"Quote",order:"Order",pro
 function openObject(type,id){
   try{ history.replaceState(null,"","#"+type+"/"+encodeURIComponent(id)); }catch(e){}
   closePalette(); closeActivity();
-  if(type==="order") return openOrder(id);
-  if(type==="quote"){ if(QUOTES[id]){ OPEN_QUOTE=id; QVIEW="compose"; SCREEN="catering"; renderNav(); render(); } return; }
+  if(type==="order"){ closeDrawer(); return openOrder(id); }
+  if(type==="quote"){ closeDrawer(); if(QUOTES[id]){ OPEN_QUOTE=id; QVIEW="compose"; SCREEN="catering"; renderNav(); render(); } return; }
   if(type==="lead") return openLead(id);
   if(type==="customer") return openCustomer(id);
   if(type==="program") return openProgram(PROGRAMS[id]);
