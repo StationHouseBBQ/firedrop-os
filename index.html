@@ -154,6 +154,27 @@
   .queue{display:flex;align-items:center;gap:14px;padding:15px 18px;border:1px solid var(--line);border-radius:11px;margin-bottom:9px;background:var(--panel);font-size:15px}
   .slot{font-weight:800;font-size:17px;color:var(--ember2);min-width:74px}
 
+  /* ---------- UNIVERSAL OBJECT ENGINE (Sprint 4) ---------- */
+  .ubrief{background:linear-gradient(120deg,#101a16,var(--panel) 60%);border:1px solid #1e3a2c;border-radius:10px;padding:14px 16px;margin-bottom:6px}
+  .ubrief .uh{font-size:11px;color:var(--green);font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+  .ubrief .ur{display:flex;gap:10px;padding:5px 0;font-size:13px}
+  .ubrief .ur .k{color:var(--mut2);min-width:130px;font-size:12px}
+  .rchip{display:inline-flex;flex-direction:column;gap:1px;border:1px solid var(--line2);border-radius:8px;padding:8px 11px;margin:0 6px 6px 0;cursor:pointer;background:#141519}
+  .rchip:hover{border-color:var(--ember)}
+  .rchip .rb{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ember2)}
+  .rchip .rt{font-size:12.5px;font-weight:600} .rchip .rs{font-size:11px;color:var(--mut2)}
+  .deeplink{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);margin-top:18px;padding-top:12px;font-size:11px;color:var(--mut2);flex-wrap:wrap}
+  .tbtn{background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--mut);padding:7px 11px;font-size:13px;cursor:pointer;white-space:nowrap}
+  .tbtn:hover{color:var(--ink);border-color:var(--line2)}
+  .pal-ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:80;display:flex;justify-content:center;align-items:flex-start;padding-top:11vh}
+  .pal{width:600px;max-width:92vw;background:var(--panel);border:1px solid var(--line2);border-radius:14px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+  .pal input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--line);color:var(--ink);padding:16px 18px;font-size:16px;outline:none}
+  .pal .res{max-height:52vh;overflow:auto}
+  .pal .r{display:flex;align-items:center;gap:12px;padding:11px 18px;cursor:pointer;border-bottom:1px solid #191b1f}
+  .pal .r:hover,.pal .r.sel{background:var(--panel2)}
+  .pal .r .rt{font-weight:600;font-size:14px} .pal .r .rs{font-size:12px;color:var(--mut2);margin-left:auto}
+  .pal .rb{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--ember2);border:1px solid var(--line2);border-radius:4px;padding:2px 6px}
+  .pal .hint{padding:12px 18px;color:var(--mut2);font-size:12px}
   /* ---------- QUOTE COMPOSER (Sprint 3) ---------- */
   .qgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:start}
   .qsum{position:sticky;top:12px}
@@ -529,6 +550,7 @@ function scrDashboard(s){
   right.appendChild(mk);
   g2.appendChild(right);
   s.appendChild(g2);
+  s.appendChild(activityCard());
 }
 function go(x){ SCREEN=x; renderNav(); render(); }
 
@@ -605,6 +627,7 @@ function openLead(id){
     q.onclick=()=>{ closeDrawer(); createQuote(id); };
     act.appendChild(q);
   }
+  const _db=d.querySelector(".db"); _db.insertBefore(uBriefCard('lead',id), _db.firstChild); _db.appendChild(uDeepLink('lead',id));
 }
 function closeDrawer(){ document.getElementById("drawer").innerHTML=""; }
 
@@ -639,6 +662,7 @@ function openCustomer(id){
     </div></div></div>`);
   document.getElementById("drawer").innerHTML=""; document.getElementById("drawer").appendChild(d);
   d.onclick=e=>{ if(e.target===d) closeDrawer(); };
+  const _db=d.querySelector(".db"); _db.insertBefore(uBriefCard('customer',c.id), _db.firstChild); _db.appendChild(uDeepLink('customer',c.id));
 }
 
 /* ---------- ORDERS ---------- */
@@ -702,6 +726,7 @@ function openProgram(p){
     </div></div></div>`);
   document.getElementById("drawer").innerHTML=""; document.getElementById("drawer").appendChild(d);
   d.onclick=e=>{ if(e.target===d) closeDrawer(); };
+  if(p.id){ const _db=d.querySelector(".db"); _db.insertBefore(uBriefCard('program',p.id), _db.firstChild); _db.appendChild(uDeepLink('program',p.id)); }
   startCountdowns();
 }
 function startCountdowns(){
@@ -938,7 +963,7 @@ function renderOrder(s,id){
   const head=el('<div class="ord-head"></div>');
   const capTag = o.guests>=120?'<span class="tag amber">Capacity: high load</span>':(o.program==="Catering"?'<span class="tag">Capacity: moderate</span>':'<span class="tag">Capacity: low</span>');
   head.appendChild(el('<div class="row" style="gap:8px;flex-wrap:wrap"><span class="tag ember">'+o.id+'</span><span class="tag '+statusCls+'">'+o.status+'</span>'+(o.priority==="High"?'<span class="tag red">High priority</span>':'<span class="tag">Normal</span>')+(o.locked?'<span class="tag" style="color:var(--smoke)">🔒 Kitchen Locked</span>':'<span class="tag green">Unlocked</span>')+capTag+'</div>'));
-  head.appendChild(el('<div class="ord-title">'+o.customer+(o.company?' · '+o.company:'')+'</div>'));
+  const _cid=custIdByName(o.customer); const _tt=el('<div class="ord-title">'+o.customer+(o.company?' · '+o.company:'')+'</div>'); if(_cid){ _tt.style.cursor='pointer'; _tt.title='Open customer record'; _tt.onclick=()=>openObject('customer',_cid); } head.appendChild(_tt);
   head.appendChild(el('<div class="muted" style="font-size:13px">'+o.program+' · '+o.guests+(o.program==="Catering"?' guests':' order')+' · pickup '+o.pickup+'</div>'));
   if(!kitchen){
     const m=el('<div class="ord-money" id="ordMoney"></div>');
@@ -979,6 +1004,7 @@ function aiCard(o){
 }
 function otOverview(b,o){
   b.appendChild(aiCard(o));
+  { const rel=uRelated('order',o.id); if(rel.length){ const rc=el('<div class="card" style="margin-bottom:16px"><h3>Related records</h3><div class="csub">Everything connected to this order</div></div>'); const box=el('<div style="display:flex;flex-wrap:wrap;margin-top:8px"></div>'); rel.forEach(r=>{ const c=el('<div class="rchip"><div class="rb">'+(OBJ_BADGE[r.type]||r.type)+'</div><div class="rt">'+r.label+'</div><div class="rs">'+(r.sub||'')+'</div></div>'); c.onclick=()=>openObject(r.type,r.id); box.appendChild(c); }); rc.appendChild(box); b.appendChild(rc); } }
   const g=el('<div class="grid" style="grid-template-columns:1fr 1fr"></div>');
   const money1=el('<div class="card"><h3>Money</h3><div class="csub">Live from payments</div></div>');
   money1.appendChild(el('<div class="between" style="padding:6px 0"><span class="muted">Total</span><b>'+money(o.total)+'</b></div>'));
@@ -1247,7 +1273,7 @@ function createOrderFromQuote(q){
     ],
     ai:{ risks:["Balance "+money(t.total-t.deposit)+" due "+(q.balanceDue||"before event")], next:"Lock the order and send the prep list to the kitchen", sentiment:"Positive — just accepted the quote", upsell:"Offer dessert platters (+$450)", conflicts:"Verify date against catering capacity", capacity:q.headcount>=120?"High load":"Moderate" }
   };
-  q.orderId=id; return id;
+  q.orderId=id; logActivity("order",id,"Order created",q.customer+" · "+money(t.total)); return id;
 }
 
 function renderQuote(s,key){
@@ -1352,6 +1378,211 @@ function renderCustomerQuote(s,q){
   else if(q.status==="Draft"){ c.appendChild(el('<div style="text-align:center;color:#888;font-size:12px;margin-top:18px">This is a live preview of the customer page. Use “Send quote” above to send it.</div>')); }
   wrap.appendChild(c); s.appendChild(wrap);
 }
+
+/* =========================================================
+   UNIVERSAL OBJECT ENGINE (Sprint 4)
+   ========================================================= */
+CUBAN.id="cuban-thu"; BBQ.id="bbq-weekend";
+const PROGRAMS={"cuban-thu":CUBAN,"bbq-weekend":BBQ};
+const PAYMENTS=[
+  {id:"PAY-501",amount:4800,method:"Stripe · deposit (50%)",date:"Aug 26",status:"Captured",orderId:"CAT-1038",customer:"Megan Carter"},
+  {id:"PAY-502",amount:2145,method:"Stripe · deposit (30%)",date:"1h ago",status:"Captured",orderId:null,leadId:"L-1041",customer:"Dana Whitfield"},
+  {id:"PAY-503",amount:11200,method:"Stripe · paid in full",date:"Aug 2",status:"Captured",orderId:"CAT-1037",customer:"MacDill AFB"},
+  {id:"PAY-504",amount:14,method:"Card · pickup",date:"Thu 11:00",status:"Captured",orderId:"C-1191",customer:"Jenna Powell"}
+];
+const COMMS=[
+  {id:"CM-701",channel:"Email",dir:"Outbound",who:"workflow",title:"Balance reminder",note:"Auto-send scheduled Aug 28",time:"queued",customer:"Megan Carter",orderId:"CAT-1038"},
+  {id:"CM-702",channel:"Call",dir:"Outbound",who:"human",title:"Discovery call",note:"Brisket + Cubans mix; tree-nut allergy noted",time:"Jun 30",customer:"Megan Carter"},
+  {id:"CM-703",channel:"SMS",dir:"Inbound",who:"human",title:"Quote question",note:"Can we add ribs to the banquet?",time:"2h ago",customer:"Capt. Ramirez",leadId:"L-1042"}
+];
+const BATCHES=[
+  {id:"BATCH-01",item:"Brisket",qty:"64 lb",status:"On schedule",program:"cuban-thu",short:false,when:"Thu 2:00 AM"},
+  {id:"BATCH-02",item:"Cubans",qty:"120",status:"Bread short 18",program:"cuban-thu",short:true,when:"Thu 10:30 AM"},
+  {id:"BATCH-03",item:"Pulled Pork",qty:"38 lb",status:"On schedule",program:"cuban-thu",short:false,when:"Thu 4:30 AM"}
+];
+const CAMPAIGNS=[
+  {id:"CMP-META",name:"Cuban Thursday promos",channel:"Meta Ads",spend:850,leads:22,revenue:5120,roas:6.0,status:"Active"},
+  {id:"CMP-GOOG",name:"'bbq catering tampa'",channel:"Google Ads",spend:1200,leads:14,revenue:9350,roas:7.8,status:"Active"},
+  {id:"CMP-CREW",name:"Feed the Crew",channel:"Meta Ads",spend:640,leads:9,revenue:2410,roas:3.8,status:"Ended"}
+];
+const REVIEWS=[
+  {id:"REV-01",rating:5,customer:"MacDill AFB",source:"Google",sentiment:"Positive",text:"On time, incredible brisket. Whole squadron raved.",orderId:"CAT-1037",time:"6d ago"},
+  {id:"REV-02",rating:5,customer:"Alicia Gomez",source:"Facebook",sentiment:"Positive",text:"Cuban Thursdays are the best in Tampa.",time:"1 wk ago"}
+];
+const TASKS_G=[
+  {id:"TSK-01",t:"Send Tampa PD quote",done:false,due:"overdue 1h",assignee:"Charles",leadId:"L-1039",priority:"High"},
+  {id:"TSK-02",t:"Send prep list to kitchen",done:false,due:"Aug 28",assignee:"Sarah",orderId:"CAT-1038",customer:"Megan Carter",priority:"High"},
+  {id:"TSK-03",t:"Confirm bread order",done:false,due:"before 9 AM",assignee:"Pit",program:"cuban-thu",priority:"High"},
+  {id:"TSK-04",t:"Thank-you + review request",done:false,due:"today",assignee:"Charles",orderId:"CAT-1037",customer:"MacDill AFB",priority:"Normal"}
+];
+const WINDOWS={
+  "WIN-cuban-0814":{id:"WIN-cuban-0814",program:"cuban-thu",label:"Cuban Thursday — Aug 14",cap:120,sold:97,revenue:1358,waitlist:3,slots:CUBAN.slots,orders:CUBAN.orders,cutoff:CUBAN.cutoffTarget},
+  "WIN-bbq-0815":{id:"WIN-bbq-0815",program:"bbq-weekend",label:"Fri/Sat BBQ — Aug 15–16",cap:80,sold:54,revenue:3186,waitlist:0,slots:BBQ.slots,orders:BBQ.orders,cutoff:BBQ.cutoffTarget}
+};
+let ACTIVITY=[
+  {ot:"lead",id:"L-1040",verb:"Lead created",label:"Sunrise Church Picnic · Meta Ads",time:"38m ago"},
+  {ot:"payment",id:"PAY-502",verb:"Payment received",label:"Dana Whitfield · $2,145 deposit",time:"1h ago"},
+  {ot:"task",id:"TSK-01",verb:"Task overdue",label:"Send Tampa PD quote",time:"1h ago"},
+  {ot:"batch",id:"BATCH-02",verb:"Kitchen shortage flagged",label:"Cuban bread short 18",time:"7:10 AM"},
+  {ot:"lead",id:"L-1042",verb:"Quote viewed",label:"Hillsborough Fire · opened 3×",time:"18m ago"},
+  {ot:"order",id:"CAT-1038",verb:"Order locked",label:"Delgado Wedding · amendment v2",time:"2d ago"},
+  {ot:"order",id:"CAT-1037",verb:"Pickup completed",label:"MacDill AFB · fulfilled",time:"6d ago"},
+  {ot:"review",id:"REV-01",verb:"Review received",label:"MacDill AFB · 5★",time:"6d ago"},
+  {ot:"payment",id:"PAY-504",verb:"Payment received",label:"Jenna Powell · $14 Cuban",time:"Thu 11:00"}
+];
+function logActivity(ot,id,verb,label){ ACTIVITY.unshift({ot,id,verb,label,time:"just now"}); }
+function custIdByName(n){ const c=CUSTOMERS.find(x=>x.name===n); return c?c.id:null; }
+function progName(pid){ return (PROGRAMS[pid]||{}).name||pid; }
+const OBJ_BADGE={customer:"Customer",lead:"Lead",quote:"Quote",order:"Order",program:"Program",window:"Window",task:"Task",payment:"Payment",communication:"Comm",batch:"Batch",campaign:"Campaign",review:"Review"};
+
+/* ---- dispatcher: same object → same experience, from anywhere ---- */
+function openObject(type,id){
+  try{ history.replaceState(null,"","#"+type+"/"+encodeURIComponent(id)); }catch(e){}
+  closePalette(); closeActivity();
+  if(type==="order") return openOrder(id);
+  if(type==="quote"){ if(QUOTES[id]){ OPEN_QUOTE=id; QVIEW="compose"; SCREEN="catering"; renderNav(); render(); } return; }
+  if(type==="lead") return openLead(id);
+  if(type==="customer") return openCustomer(id);
+  if(type==="program") return openProgram(PROGRAMS[id]);
+  return uOpen(type,id);
+}
+
+/* ---- AI Brief + Related, shared by every object ---- */
+function uBrief(type,id){
+  if(type==="lead"){ const l=LEADS.find(x=>x.id===id)||{}; return [["SLA status",l.sla+(l.slaState==="late"?" · BREACHED":l.slaState==="warn"?" · at risk":" · on track")],["Source",l.source],["Stage",l.stage],["Urgency",l.slaState==="late"?"High — overdue":l.slaState==="warn"?"Medium":"Normal"],["Recommended next",(l.next||"").replace("⚠ ","")]]; }
+  if(type==="customer"){ const c=CUSTOMERS.find(x=>x.id===id)||{}; const openT=TASKS_G.filter(t=>t.customer===c.name&&!t.done).length; let out=0; Object.values(ORD).forEach(o=>{ if(o.customer===c.name) out+=Math.max(0,o.total-o.paid); }); return [["Lifetime value",money(c.spend||0)],["Recent activity",(c.timeline&&c.timeline[0])?c.timeline[0][0]:"—"],["Open tasks",openT],["Outstanding balance",out>0?money(out):"$0"],["Relationship",(c.tags||[]).includes("VIP")?"VIP · strong":"Active"],["Recommended next",out>0?"Collect outstanding balance":"Nurture for repeat / referral"]]; }
+  if(type==="program"){ const p=PROGRAMS[id]||{}; return [["Sold",p.sold+" / "+p.cap],["Remaining",p.cap-p.sold],["Revenue",money(p.revenue)],["Sell-through",Math.round(p.sold/p.cap*100)+"%"],["Cutoff","live countdown"],["Recommended next",(p.sold/p.cap>0.9)?"Selling fast — raise cap or price?":"Promote remaining slots"]]; }
+  if(type==="order"){ const o=getOrder(id); return [["Status",o.status],["Payment",(o.total-o.paid<=0)?"Paid in full":money(o.total-o.paid)+" balance"],["Kitchen",o.production],["Risk",(o.ai.risks||[])[0]||"None"],["Next",o.ai.next],["Capacity impact",o.ai.capacity]]; }
+  if(type==="payment"){ const p=PAYMENTS.find(x=>x.id===id)||{}; return [["Amount",money(p.amount)],["Method",p.method],["Date",p.date],["Status",p.status],["Order",p.orderId||"—"],["Customer",p.customer]]; }
+  if(type==="communication"){ const m=COMMS.find(x=>x.id===id)||{}; return [["Channel",m.channel],["Direction",m.dir],["When",m.time],["Customer",m.customer||"—"],["Summary",m.note]]; }
+  if(type==="batch"){ const b=BATCHES.find(x=>x.id===id)||{}; return [["Item",b.item],["Quantity",b.qty],["Status",b.status],["Program",progName(b.program)],["Shortage",b.short?"⚠ YES":"No"],["When",b.when]]; }
+  if(type==="campaign"){ const c=CAMPAIGNS.find(x=>x.id===id)||{}; return [["Channel",c.channel],["Spend",money(c.spend)],["Leads",c.leads],["Revenue",money(c.revenue)],["ROAS",c.roas+"×"],["Status",c.status]]; }
+  if(type==="review"){ const r=REVIEWS.find(x=>x.id===id)||{}; return [["Rating","★".repeat(r.rating)],["Customer",r.customer],["Source",r.source],["Sentiment",r.sentiment],["Comment",r.text]]; }
+  if(type==="task"){ const t=TASKS_G.find(x=>x.id===id)||{}; return [["Status",t.done?"Done":"Open"],["Due",t.due],["Assignee",t.assignee],["Priority",t.priority],["Recommended next",t.done?"Archive":"Complete this task"]]; }
+  if(type==="window"){ const w=WINDOWS[id]||{}; return [["Sold",w.sold+" / "+w.cap],["Remaining",w.cap-w.sold],["Revenue",money(w.revenue)],["Waitlist",w.waitlist],["Cutoff","live countdown"]]; }
+  return [];
+}
+function uRelated(type,id){
+  const R=[]; const push=(t,i,label,sub)=>{ if(i!=null) R.push({type:t,id:i,label,sub}); };
+  if(type==="lead"){ const l=LEADS.find(x=>x.id===id)||{}; push("customer",custIdByName(l.name),l.name,"Customer"); Object.values(QUOTES).filter(q=>q.leadId===id).forEach(q=>push("quote",q.key,quoteLabel(q),"Quote")); PAYMENTS.filter(p=>p.leadId===id).forEach(p=>push("payment",p.id,money(p.amount),p.method)); }
+  else if(type==="customer"){ const c=CUSTOMERS.find(x=>x.id===id)||{}; LEADS.filter(l=>l.name===c.name).forEach(l=>push("lead",l.id,l.name,l.stage)); ORDERS.filter(o=>o.cust===c.name).forEach(o=>push("order",o.id,o.id,o.status)); PAYMENTS.filter(p=>p.customer===c.name).forEach(p=>push("payment",p.id,money(p.amount),p.date)); COMMS.filter(m=>m.customer===c.name).forEach(m=>push("communication",m.id,m.title,m.channel)); TASKS_G.filter(t=>t.customer===c.name).forEach(t=>push("task",t.id,t.t,t.due)); REVIEWS.filter(r=>r.customer===c.name).forEach(r=>push("review",r.id,r.rating+"★ review",r.source)); }
+  else if(type==="order"){ const o=getOrder(id); push("customer",custIdByName(o.customer),o.customer,"Customer"); PAYMENTS.filter(p=>p.orderId===id).forEach(p=>push("payment",p.id,money(p.amount),p.method)); TASKS_G.filter(t=>t.orderId===id).forEach(t=>push("task",t.id,t.t,t.due)); COMMS.filter(m=>m.orderId===id).forEach(m=>push("communication",m.id,m.title,m.channel)); }
+  else if(type==="program"){ const p=PROGRAMS[id]; Object.values(WINDOWS).filter(w=>w.program===id).forEach(w=>push("window",w.id,w.label,"Window")); BATCHES.filter(b=>b.program===id).forEach(b=>push("batch",b.id,b.item,b.qty)); }
+  else if(type==="window"){ const w=WINDOWS[id]||{}; push("program",w.program,progName(w.program),"Program"); BATCHES.filter(b=>b.program===w.program).forEach(b=>push("batch",b.id,b.item,b.status)); }
+  else if(type==="payment"){ const p=PAYMENTS.find(x=>x.id===id)||{}; push("order",p.orderId,p.orderId,"Order"); push("customer",custIdByName(p.customer),p.customer,"Customer"); push("lead",p.leadId,p.leadId,"Lead"); }
+  else if(type==="communication"){ const m=COMMS.find(x=>x.id===id)||{}; push("customer",custIdByName(m.customer),m.customer,"Customer"); push("order",m.orderId,m.orderId,"Order"); push("lead",m.leadId,m.leadId,"Lead"); }
+  else if(type==="batch"){ const b=BATCHES.find(x=>x.id===id)||{}; push("program",b.program,progName(b.program),"Program"); }
+  else if(type==="campaign"){ const c=CAMPAIGNS.find(x=>x.id===id)||{}; LEADS.filter(l=>l.source===c.channel).forEach(l=>push("lead",l.id,l.name,l.stage)); }
+  else if(type==="review"){ const r=REVIEWS.find(x=>x.id===id)||{}; push("customer",custIdByName(r.customer),r.customer,"Customer"); push("order",r.orderId,r.orderId,"Order"); }
+  else if(type==="task"){ const t=TASKS_G.find(x=>x.id===id)||{}; push("order",t.orderId,t.orderId,"Order"); push("lead",t.leadId,t.leadId,"Lead"); push("program",t.program,progName(t.program),"Program"); push("customer",custIdByName(t.customer),t.customer,"Customer"); }
+  return R;
+}
+function uPerms(type){ return {payment:"Owner · CM (finance) — hidden from Kitchen",order:"All roles · pricing hidden from Kitchen",lead:"Owner · CM",customer:"Owner · CM",quote:"Owner · CM",program:"Owner · Ops",window:"Owner · Ops · Counter",task:"Assignee · Owner",communication:"Owner · CM",batch:"Kitchen · Owner",campaign:"Owner · Marketing",review:"Owner · Marketing"}[type]||"Owner"; }
+
+function uBriefCard(type,id){
+  const wrap=el('<div></div>');
+  const b=el('<div class="ubrief"></div>');
+  b.appendChild(el('<div class="uh">✦ AI Brief</div>'));
+  uBrief(type,id).forEach(r=>b.appendChild(el('<div class="ur"><div class="k">'+r[0]+'</div><div>'+r[1]+'</div></div>')));
+  wrap.appendChild(b);
+  const rel=uRelated(type,id);
+  if(rel.length){ wrap.appendChild(el('<h3 style="margin:14px 0 8px;font-size:13px">Related records</h3>')); const box=el('<div style="display:flex;flex-wrap:wrap"></div>'); rel.forEach(r=>{ const c=el('<div class="rchip"><div class="rb">'+(OBJ_BADGE[r.type]||r.type)+'</div><div class="rt">'+r.label+'</div><div class="rs">'+(r.sub||'')+'</div></div>'); c.onclick=()=>openObject(r.type,r.id); box.appendChild(c); }); wrap.appendChild(box); }
+  return wrap;
+}
+function uDeepLink(type,id){
+  const f=el('<div class="deeplink"><span>Visible to: '+uPerms(type)+'</span></div>');
+  const b=el('<button class="btn sm ghost">Copy link</button>'); b.onclick=()=>{ const url=location.origin+location.pathname+"#"+type+"/"+encodeURIComponent(id); if(navigator.clipboard)navigator.clipboard.writeText(url); b.textContent="Copied ✓"; setTimeout(()=>b.textContent="Copy link",1200); };
+  f.appendChild(b); return f;
+}
+
+/* ---- universal drawer for object types without a dedicated page ---- */
+function uOpen(type,id){
+  try{ history.replaceState(null,"","#"+type+"/"+encodeURIComponent(id)); }catch(e){}
+  const titleMap={
+    payment:()=>{const p=PAYMENTS.find(x=>x.id===id)||{};return[money(p.amount),p.method];},
+    communication:()=>{const m=COMMS.find(x=>x.id===id)||{};return[m.title,m.channel+" · "+m.dir];},
+    batch:()=>{const b=BATCHES.find(x=>x.id===id)||{};return[b.item+" · "+b.qty,progName(b.program)];},
+    campaign:()=>{const c=CAMPAIGNS.find(x=>x.id===id)||{};return[c.name,c.channel];},
+    review:()=>{const r=REVIEWS.find(x=>x.id===id)||{};return["★".repeat(r.rating)+" — "+r.customer,r.source];},
+    task:()=>{const t=TASKS_G.find(x=>x.id===id)||{};return[t.t,"Due "+t.due];},
+    window:()=>{const w=WINDOWS[id]||{};return[w.label,"Program window"];}
+  };
+  const tt=(titleMap[type]||(()=>[id,type]))();
+  const statusMap={ payment:["Captured","green"], task:[(TASKS_G.find(x=>x.id===id)||{}).done?"Done":"Open",(TASKS_G.find(x=>x.id===id)||{}).done?"green":"ember"], batch:[(BATCHES.find(x=>x.id===id)||{}).short?"Shortage":"On schedule",(BATCHES.find(x=>x.id===id)||{}).short?"red":"green"], campaign:[(CAMPAIGNS.find(x=>x.id===id)||{}).status,(CAMPAIGNS.find(x=>x.id===id)||{}).status==="Active"?"green":""], review:["Verified","green"], communication:["Logged","blue"], window:["Open","ember"] };
+  const st=statusMap[type]||["",""];
+  const d=el('<div class="overlay"><div class="drawer"><div class="dh"><button class="x" onclick="closeDrawer()">×</button><div class="row" style="gap:8px"><span class="tag ember">'+(OBJ_BADGE[type]||type)+'</span><span class="tag" style="color:var(--mut2)">'+id+'</span>'+(st[0]?'<span class="tag '+st[1]+'">'+st[0]+'</span>':'')+'</div><h1 style="font-size:20px;margin:10px 0 2px">'+tt[0]+'</h1><div class="sub muted" style="font-size:13px">'+tt[1]+'</div></div><div class="db" id="uBody"></div></div></div>');
+  document.getElementById("drawer").innerHTML=""; document.getElementById("drawer").appendChild(d);
+  d.onclick=e=>{ if(e.target===d) closeDrawer(); };
+  const body=d.querySelector("#uBody");
+  body.appendChild(uBriefCard(type,id));
+  // quick actions
+  const qa=el('<div class="row" style="gap:8px;margin:14px 0 4px;flex-wrap:wrap"></div>');
+  if(type==="task"){ const t=TASKS_G.find(x=>x.id===id); const b=el('<button class="btn primary sm">'+(t.done?"Reopen task":"Mark complete")+'</button>'); b.onclick=()=>{ t.done=!t.done; if(t.done)logActivity("task",id,"Task completed",t.t); uOpen(type,id); }; qa.appendChild(b); }
+  if(type==="payment"){ qa.appendChild(el('<button class="btn sm ghost">View receipt</button>')); qa.appendChild(el('<button class="btn sm ghost">Refund (owner)</button>')); }
+  if(type==="communication"){ qa.appendChild(el('<button class="btn sm">Reply</button>')); }
+  if(type==="window"){ const b=el('<button class="btn primary sm">Open program</button>'); b.onclick=()=>openObject("program",(WINDOWS[id]||{}).program); qa.appendChild(b); }
+  if(type==="campaign"){ qa.appendChild(el('<button class="btn sm ghost">Open in ad platform</button>')); }
+  if(qa.children.length) body.appendChild(qa);
+  // window: slots + manifest
+  if(type==="window"){ const w=WINDOWS[id]; body.appendChild(el('<h3 style="margin:16px 0 8px;font-size:13px">Pickup manifest</h3>')); const t=el('<table><thead><tr><th>Customer</th><th>Qty</th><th>Slot</th><th>Status</th></tr></thead><tbody></tbody></table>'); (w.orders||[]).forEach(o=>t.querySelector("tbody").appendChild(el('<tr><td><b>'+o.name+'</b></td><td>'+o.qty+'</td><td class="muted">'+o.slot+'</td><td><span class="tag '+(o.paid?'green':'red')+'">'+(o.paid?'Paid':'Balance due')+'</span></td></tr>'))); body.appendChild(t); if(w.waitlist>0) body.appendChild(el('<div class="tag amber" style="margin-top:10px">Waitlist: '+w.waitlist+' waiting</div>')); }
+  body.appendChild(uDeepLink(type,id));
+}
+
+/* ---- COMMAND PALETTE (⌘K / Ctrl+K) ---- */
+function searchIndex(){
+  const ix=[];
+  CUSTOMERS.forEach(c=>ix.push({type:"customer",id:c.id,label:c.name,sub:"Customer · "+c.type}));
+  LEADS.forEach(l=>ix.push({type:"lead",id:l.id,label:l.name,sub:"Lead · "+l.stage}));
+  Object.values(QUOTES).forEach(q=>ix.push({type:"quote",id:q.key,label:quoteLabel(q)+" · "+q.customer,sub:"Quote · "+q.status}));
+  ORDERS.forEach(o=>ix.push({type:"order",id:o.id,label:o.id+" · "+o.cust,sub:"Order · "+o.status}));
+  Object.keys(PROGRAMS).forEach(k=>ix.push({type:"program",id:k,label:PROGRAMS[k].name,sub:"Program"}));
+  PAYMENTS.forEach(p=>ix.push({type:"payment",id:p.id,label:money(p.amount)+" · "+p.customer,sub:"Payment"}));
+  TASKS_G.forEach(t=>ix.push({type:"task",id:t.id,label:t.t,sub:"Task · "+t.due}));
+  CAMPAIGNS.forEach(c=>ix.push({type:"campaign",id:c.id,label:c.name,sub:"Campaign · "+c.channel}));
+  return ix;
+}
+let PAL_SEL=0, PAL_RES=[];
+function openPalette(){ if(document.getElementById("app").classList.contains("hide")) return; if(document.getElementById("pal")) return closePalette();
+  const ov=el('<div class="pal-ov" id="pal"><div class="pal"><input placeholder="Search customers, leads, quotes, orders, payments, tasks, campaigns…"><div class="res" id="palRes"></div><div class="hint">↑↓ to navigate · ↵ to open · Esc to close</div></div></div>');
+  document.getElementById("drawer").appendChild(ov); ov.onclick=e=>{ if(e.target===ov) closePalette(); };
+  const inp=ov.querySelector("input"); inp.oninput=()=>palRender(inp.value); inp.focus(); palRender("");
+}
+function palRender(q){ const res=document.getElementById("palRes"); if(!res)return; const ql=q.trim().toLowerCase();
+  PAL_RES=searchIndex().filter(x=>!ql|| (x.label+" "+x.sub+" "+x.id).toLowerCase().includes(ql)).slice(0,40); PAL_SEL=0;
+  res.innerHTML=""; if(!PAL_RES.length){ res.appendChild(el('<div class="hint">No matches for “'+q+'”</div>')); return; }
+  PAL_RES.forEach((r,i)=>{ const row=el('<div class="r '+(i===0?'sel':'')+'"><span class="rb">'+(OBJ_BADGE[r.type]||r.type)+'</span><span class="rt">'+r.label+'</span><span class="rs">'+r.sub+'</span></div>'); row.onclick=()=>{ closePalette(); openObject(r.type,r.id); }; res.appendChild(row); });
+}
+function palMove(d){ const rows=[...document.querySelectorAll("#palRes .r")]; if(!rows.length)return; rows[PAL_SEL]&&rows[PAL_SEL].classList.remove("sel"); PAL_SEL=(PAL_SEL+d+rows.length)%rows.length; rows[PAL_SEL].classList.add("sel"); rows[PAL_SEL].scrollIntoView({block:"nearest"}); }
+function closePalette(){ const p=document.getElementById("pal"); if(p)p.remove(); }
+
+/* ---- GLOBAL ACTIVITY FEED ---- */
+function activityIcon(v){ return {"Lead created":"✚","Quote sent":"✉","Quote viewed":"👁","Deposit paid":"$","Order created":"▤","Order locked":"🔒","Payment received":"$","Kitchen started":"♨","Pickup completed":"✓","Task completed":"✓","Task overdue":"⚠","Amendment created":"✎","Kitchen shortage flagged":"⚠","Review received":"★"}[v]||"•"; }
+function openActivity(){ if(document.getElementById("actov")) return closeActivity();
+  const ov=el('<div class="pal-ov" id="actov"><div class="pal"><div style="padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700">⚡ Activity feed <span class="mut2" style="font-weight:400;font-size:12px">· recent events across FireDrop</span></div><div class="res" id="actRes"></div></div></div>');
+  document.getElementById("drawer").appendChild(ov); ov.onclick=e=>{ if(e.target===ov) closeActivity(); };
+  const res=ov.querySelector("#actRes");
+  ACTIVITY.forEach(a=>{ const row=el('<div class="r"><span class="rb">'+activityIcon(a.verb)+'</span><span class="rt">'+a.verb+'</span><span class="rs">'+a.label+' · '+a.time+'</span></div>'); row.onclick=()=>{ closeActivity(); openObject(a.ot,a.id); }; res.appendChild(row); });
+}
+function closeActivity(){ const a=document.getElementById("actov"); if(a)a.remove(); }
+function activityCard(){
+  const c=el('<div class="card" style="margin-top:16px"><div class="between"><h3>⚡ Activity feed</h3><button class="btn sm ghost">View all</button></div><div class="csub">Recent events across FireDrop · click any to open the object</div></div>');
+  c.querySelector("button").onclick=openActivity;
+  ACTIVITY.slice(0,6).forEach(a=>{ const row=el('<div class="between" style="padding:9px 0;border-top:1px solid var(--line);cursor:pointer"><span><b style="font-size:13px">'+a.verb+'</b> <span class="muted" style="font-size:12px">· '+a.label+'</span></span><span class="mut2" style="font-size:11px">'+a.time+'</span></div>'); row.onclick=()=>openObject(a.ot,a.id); c.appendChild(row); });
+  return c;
+}
+
+/* ---- global keys + topbar wiring + deep-link on load ---- */
+document.addEventListener("keydown",e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="k"){ e.preventDefault(); openPalette(); return; }
+  if(document.getElementById("pal")){ if(e.key==="Escape")closePalette(); else if(e.key==="ArrowDown"){e.preventDefault();palMove(1);} else if(e.key==="ArrowUp"){e.preventDefault();palMove(-1);} else if(e.key==="Enter"){ const r=PAL_RES[PAL_SEL]; if(r){closePalette();openObject(r.type,r.id);} } }
+  else if(e.key==="Escape"){ closeActivity(); }
+});
+(function wireOS(){
+  const si=document.querySelector(".topbar .search input"); if(si){ si.readOnly=true; si.style.cursor="pointer"; si.placeholder="Search…  ⌘K"; si.onclick=openPalette; }
+  const tb=document.querySelector(".topbar .date"); if(tb){ const b=el('<button class="tbtn" title="Activity feed" style="margin-left:auto">⚡ Activity</button>'); b.onclick=openActivity; tb.parentNode.insertBefore(b,tb); tb.style.marginLeft="14px"; }
+  const _enter=window.enterApp; window.enterApp=function(){ _enter(); setTimeout(routeHash,60); };
+})();
+function routeHash(){ const h=(location.hash||"").replace(/^#/,""); if(!h)return; const i=h.indexOf("/"); if(i<0)return; const type=h.slice(0,i), id=decodeURIComponent(h.slice(i+1)); if(OBJ_BADGE[type]) openObject(type,id); }
 </script>
 </body>
 </html>
