@@ -154,6 +154,40 @@
   .queue{display:flex;align-items:center;gap:14px;padding:15px 18px;border:1px solid var(--line);border-radius:11px;margin-bottom:9px;background:var(--panel);font-size:15px}
   .slot{font-weight:800;font-size:17px;color:var(--ember2);min-width:74px}
 
+  /* ---------- QUOTE COMPOSER (Sprint 3) ---------- */
+  .qgrid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:start}
+  .qsum{position:sticky;top:12px}
+  .pkg{border:1px solid var(--line);border-radius:10px;padding:13px 15px;margin-bottom:9px;cursor:pointer}
+  .pkg:hover{border-color:var(--line2)}
+  .pkg.on{border-color:var(--ember);background:var(--emberdim)}
+  .pkg .pn{font-weight:700;font-size:14px} .pkg .pd{font-size:12px;color:var(--mut);margin-top:2px}
+  .pkg .pp{font-weight:800;color:var(--ember2)}
+  .qline{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:13px}
+  .stepper2{display:flex;align-items:center;gap:8px;margin-left:auto}
+  .stepper2 button{width:26px;height:26px;border-radius:6px;border:1px solid var(--line2);background:#17171b;color:var(--ink);font-weight:800;line-height:1}
+  .qin{background:#0f1116;border:1px solid var(--line2);color:var(--ink);border-radius:8px;padding:9px 11px;font-size:13px;font-family:inherit}
+  .sumrow{display:flex;justify-content:space-between;padding:7px 0;font-size:14px}
+  .sumrow.big{border-top:1px solid var(--line2);margin-top:4px;padding-top:11px;font-size:16px;font-weight:800}
+  .margin-box{background:#12130f;border:1px dashed #3a3220;border-radius:10px;padding:12px 14px;margin-top:14px}
+  .margin-box .mh{font-size:11px;color:var(--gold,#F5A623);color:var(--amber);font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+  /* customer-facing quote page */
+  .cust-wrap{max-width:720px;margin:0 auto}
+  .cust-quote{background:#fbfaf7;color:#1a1a1a;border-radius:14px;padding:34px 38px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  .cust-quote .brand{font-family:"Arial Narrow",Arial,sans-serif;font-weight:800;letter-spacing:.02em;font-size:24px;text-transform:uppercase;color:#101214}
+  .cust-quote .brand .a{color:var(--ember)}
+  .cust-quote .cq-rule{height:3px;width:54px;background:var(--ember);border-radius:2px;margin:8px 0 20px}
+  .cust-quote h2{font-size:20px;margin:0 0 4px;color:#101214}
+  .cust-quote .cq-sub{color:#666;font-size:13px;margin-bottom:20px}
+  .cq-line{display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #e5e2da;font-size:14px}
+  .cq-line .d{color:#555;font-size:12px}
+  .cq-tot{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}
+  .cq-tot.big{border-top:2px solid #1a1a1a;margin-top:6px;padding-top:12px;font-size:18px;font-weight:800}
+  .cq-dep{background:#101214;color:#f2f0eb;border-radius:10px;padding:16px 18px;margin-top:20px;display:flex;justify-content:space-between;align-items:center}
+  .cq-dep .l{font-size:12px;color:#9ba0a8;text-transform:uppercase;letter-spacing:.06em}
+  .cq-dep .v{font-size:22px;font-weight:800}
+  .simbar{background:var(--panel2);border:1px dashed var(--line2);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .simbar .st{font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+  @media(max-width:768px){ .qgrid{grid-template-columns:1fr} .qsum{position:static} .cust-quote{padding:24px 20px} }
   /* ---------- RESPONSIVE (tablet + mobile) ---------- */
   @media(max-width:1024px){ .grid{grid-template-columns:repeat(2,1fr)!important} }
   @media(max-width:768px){
@@ -276,6 +310,10 @@ let SCREEN = "dashboard";
 let OPEN_ORDER = null;      // Sprint 2: currently open Order Record id
 let ORDER_TAB = "overview"; // active tab within the Order Record
 let AMEND_OPEN = false;     // amendment form visible
+let OPEN_QUOTE = null;      // Sprint 3: open quote key
+let QVIEW = "compose";      // "compose" | "customer"
+let QNUM = 1042, ONUM = 1050; // running quote / order numbers
+const QUOTES = {};
 
 const NAV = [
   ["dashboard","Today","⌂"],
@@ -423,13 +461,14 @@ function renderNav(){
   items.forEach(([id,label,ic])=>{
     const b = badges[id]? `<span class="badge">${badges[id]}</span>`:"";
     const it=el(`<div class="navitem ${id===SCREEN?'active':''}"><span class="ic">${ic}</span>${label}${b}</div>`);
-    it.onclick=()=>{ OPEN_ORDER=null; AMEND_OPEN=false; SCREEN=id; renderNav(); render(); };
+    it.onclick=()=>{ OPEN_ORDER=null; OPEN_QUOTE=null; AMEND_OPEN=false; SCREEN=id; renderNav(); render(); };
     nav.appendChild(it);
   });
 }
 
 function render(){
   const s=document.getElementById("stage"); window.scrollTo(0,0); s.scrollTop=0;
+  if(OPEN_QUOTE){ renderQuote(s, OPEN_QUOTE); return; }
   if(SCREEN==="orders" && OPEN_ORDER){ renderOrder(s, OPEN_ORDER); return; }
   ({dashboard:scrDashboard,catering:scrCatering,customers:scrCustomers,orders:scrOrders,programs:scrPrograms,kitchen:scrKitchen,marketing:scrMarketing,reports:scrReports,settings:scrSettings}[SCREEN]||scrDashboard)(s);
 }
@@ -561,6 +600,11 @@ function openLead(id){
     b.onclick=()=>{ l.stage=nextStage; l.timeline.unshift([nextStage,"Advanced in prototype","just now"]); if(nextStage==="Deposit Paid"&&l.quote){l.deposit=Math.round(l.quote*0.3);l.balance=l.quote-l.deposit;} closeDrawer(); if(SCREEN==="catering")render(); openLead(id); };
     act.appendChild(b);
   } else act.appendChild(el(`<div class="tag green">Lifecycle complete</div>`));
+  if(idx>=2){ // Qualified or later → can build a quote (Sprint 3)
+    const q=el(`<button class="btn" style="width:100%;padding:11px;margin-top:8px;border-color:var(--ember);color:var(--ember2)">＋ Create Quote</button>`);
+    q.onclick=()=>{ closeDrawer(); createQuote(id); };
+    act.appendChild(q);
+  }
 }
 function closeDrawer(){ document.getElementById("drawer").innerHTML=""; }
 
@@ -1124,6 +1168,189 @@ function printLabels(id){
   (o.items||[]).forEach(it=>grid.appendChild(el('<div style="border:1px solid #000;border-radius:6px;padding:10px"><b>'+it.name+'</b><div>'+it.qty+'</div><div style="font-size:11px">'+o.customer+' · '+o.pickup+'</div>'+((o.dietary&&o.dietary.length)?'<div style="font-size:11px;font-weight:800">⚠ '+o.dietary.join(', ')+'</div>':'')+'</div>')));
   pa.appendChild(grid);
   document.body.appendChild(pa); window.print(); setTimeout(()=>pa.remove(),600);
+}
+
+/* =========================================================
+   QUOTE COMPOSER (Sprint 3) — Qualified lead → quote → deposit → order
+   ========================================================= */
+const PACKAGES=[
+  {id:"cuban", name:"Cuban Spread", perHead:19, cost:7, desc:"Cubans, chips, slaw, pickles"},
+  {id:"classic", name:"Classic BBQ", perHead:24, cost:9, desc:"1 meat, 2 sides, bread & sauce"},
+  {id:"premium", name:"Premium Brisket", perHead:32, cost:13, desc:"Brisket + pulled pork, 3 sides, bread"},
+  {id:"deluxe", name:"Deluxe Pitmaster", perHead:42, cost:17, desc:"Brisket, ribs, pork, 4 sides, dessert"}
+];
+const ALACARTE=[
+  {name:"Brisket (per lb)", price:24, cost:10},
+  {name:"Pulled Pork (per lb)", price:16, cost:6},
+  {name:"Mac & Cheese (pan)", price:45, cost:16},
+  {name:"Banana Pudding (tray)", price:38, cost:12},
+  {name:"Sweet Tea (gallon)", price:12, cost:3},
+  {name:"Extra sauce (pint)", price:8, cost:2}
+];
+const SERVICE_FEES={"Drop-off":[0,0],"Delivery + Setup":[150,0],"Full-service":[150,350]};
+function parseGuests(t){ const m=(t||"").match(/(\d+)/); return m?+m[1]:100; }
+function quoteLabel(q){ return "Q-"+q.num+" v"+q.version; }
+function quoteTotals(q){
+  const pkg=q.package?q.package.perHead*q.headcount:0, pkgCost=q.package?q.package.cost*q.headcount:0;
+  let ala=0,alaCost=0; (q.alacarte||[]).forEach(a=>{ala+=a.price*a.qty; alaCost+=a.cost*a.qty;});
+  const fees=(q.deliveryFee||0)+(q.setupFee||0);
+  const subtotal=pkg+ala+fees, tax=Math.round(subtotal*q.taxRate), total=subtotal+tax;
+  const deposit=Math.round(total*q.depositPct), cost=pkgCost+alaCost+Math.round(fees*0.35);
+  const margin=subtotal>0?(subtotal-cost)/subtotal:0;
+  return {pkg,ala,fees,subtotal,tax,total,deposit,cost,margin};
+}
+function createQuote(leadId){
+  const l=LEADS.find(x=>x.id===leadId)||{}; const num=QNUM++; const key=num+".1";
+  QUOTES[key]={num,version:1,key,leadId,customer:l.name||"Customer",contact:l.contact||"—",phone:l.phone||"—",email:"—",
+    eventText:l.event||"", eventDate:l.date||"", headcount:parseGuests(l.event), serviceType:"Delivery + Setup",
+    package:null, alacarte:[], deliveryFee:150, setupFee:0, taxRate:0.075, depositPct:0.5, balanceDue:"",
+    status:"Draft", sentAt:null, viewedAt:null, acceptedAt:null, expiresAt:null, orderId:null};
+  OPEN_QUOTE=key; QVIEW="compose"; SCREEN="catering"; renderNav(); render();
+}
+function qGetAla(q,name){ const a=(q.alacarte||[]).find(x=>x.name===name); return a?a.qty:0; }
+function qAddAla(key,i){ const q=QUOTES[key],it=ALACARTE[i]; let a=q.alacarte.find(x=>x.name===it.name); if(a)a.qty++; else q.alacarte.push({name:it.name,price:it.price,cost:it.cost,qty:1}); render(); }
+function qDecAla(key,i){ const q=QUOTES[key],it=ALACARTE[i]; let a=q.alacarte.find(x=>x.name===it.name); if(a){a.qty--; if(a.qty<=0)q.alacarte=q.alacarte.filter(x=>x.name!==it.name);} render(); }
+function qSetPackage(key,i){ const q=QUOTES[key],p=PACKAGES[i]; q.package=(q.package&&q.package.id===p.id)?null:p; render(); }
+function qSetService(key,s){ const q=QUOTES[key]; q.serviceType=s; const f=SERVICE_FEES[s]; q.deliveryFee=f[0]; q.setupFee=f[1]; render(); }
+function qSetDeposit(key,p){ QUOTES[key].depositPct=p; render(); }
+function qSetField(key,f,v){ QUOTES[key][f]=v; }
+
+function sendQuote(key){ const q=QUOTES[key]; if(!q.package&&!(q.alacarte||[]).length){ alert("Add a package or item first."); return; } const t=quoteTotals(q); q.status="Sent"; q.sentAt="just now"; q.expiresAt="in 14 days"; const l=LEADS.find(x=>x.id===q.leadId); if(l){ if(STAGES.indexOf(l.stage)<STAGES.indexOf("Quote Sent")) l.stage="Quote Sent"; l.quote=t.total; } QVIEW="customer"; render(); }
+function markViewed(key){ const q=QUOTES[key]; q.status="Viewed"; q.viewedAt="just now"; const l=LEADS.find(x=>x.id===q.leadId); if(l&&STAGES.indexOf(l.stage)<STAGES.indexOf("Quote Viewed")) l.stage="Quote Viewed"; render(); }
+function acceptQuote(key){ const q=QUOTES[key]; q.status="Accepted"; q.acceptedAt="just now"; render(); }
+function revalidateQuote(key){ const q=QUOTES[key]; q.status="Sent"; q.expiresAt="in 14 days (revalidated)"; render(); }
+function duplicateQuote(key){ const q=QUOTES[key]; const nk=q.num+"."+(q.version+1); QUOTES[nk]=Object.assign({},q,{version:q.version+1,key:nk,status:"Draft",sentAt:null,viewedAt:null,acceptedAt:null,expiresAt:null,orderId:null,package:q.package,alacarte:(q.alacarte||[]).map(a=>Object.assign({},a))}); OPEN_QUOTE=nk; QVIEW="compose"; render(); }
+function payDeposit(key){ const q=QUOTES[key]; const oid=createOrderFromQuote(q); q.status="Converted"; const l=LEADS.find(x=>x.id===q.leadId); const t=quoteTotals(q); if(l){ l.stage="Deposit Paid"; l.quote=t.total; l.deposit=t.deposit; l.balance=t.total-t.deposit; } OPEN_QUOTE=null; openOrder(oid); }
+function createOrderFromQuote(q){
+  const t=quoteTotals(q); const id="CAT-"+(ONUM++);
+  const items=[]; if(q.package) items.push({name:q.package.name+" package",qty:q.headcount+" guests"});
+  (q.alacarte||[]).forEach(a=>items.push({name:a.name,qty:String(a.qty)}));
+  ORDERS.unshift({id,cust:q.customer,type:"Catering",status:"Deposit paid",amount:t.total,when:q.eventDate||"TBD",kitchen:"Scheduled"});
+  ORD[id]={ id, customerId:null, customer:q.customer, company:"", program:"Catering",
+    status:"Deposit paid", priority:q.headcount>=120?"High":"Normal", locked:false, version:1,
+    pickup:q.eventDate||"TBD", owner:"Charles", guests:q.headcount, location:q.serviceType,
+    total:t.total, subtotal:t.subtotal, tax:t.tax, paid:t.deposit, refunds:0,
+    dietary:[], source:"Quote "+quoteLabel(q), referral:"—", phone:q.phone, email:q.email, address:q.serviceType,
+    ltv:t.total, prevOrders:[],
+    items, production:"Scheduled", prepProgress:0, packaging:"To be confirmed",
+    amendments:[], payments:[{when:"just now",amt:t.deposit,method:"Stripe · deposit ("+Math.round(q.depositPct*100)+"%)",type:"deposit"}],
+    tasks:[{t:"Confirm final headcount",done:false},{t:"Send prep list to kitchen",done:false},{t:"Collect balance by "+(q.balanceDue||"event date"),done:false}],
+    staff:["Charles (owner)"], notes:[], reviews:[], comms:[["Quote accepted",quoteLabel(q)+" · "+money(t.total),"just now"]],
+    timeline:[
+      {who:"system",title:"Lead Created",note:"From pipeline",time:"earlier",done:true},
+      {who:"human",title:"Quote Sent",note:quoteLabel(q)+" · "+money(t.total),time:q.sentAt||"earlier",done:true},
+      {who:"workflow",title:"Quote Viewed",note:"Customer opened quote",time:q.viewedAt||"earlier",done:true},
+      {who:"human",title:"Deposit Paid",note:money(t.deposit)+" ("+Math.round(q.depositPct*100)+"%) · Stripe",time:"just now",done:true},
+      {who:"",title:"Order Locked",note:"Lock when menu is final",time:"— pending",done:false},
+      {who:"",title:"Kitchen Started",note:"",time:"— pending",done:false},
+      {who:"",title:"Picked Up",note:"",time:"— pending",done:false}
+    ],
+    ai:{ risks:["Balance "+money(t.total-t.deposit)+" due "+(q.balanceDue||"before event")], next:"Lock the order and send the prep list to the kitchen", sentiment:"Positive — just accepted the quote", upsell:"Offer dessert platters (+$450)", conflicts:"Verify date against catering capacity", capacity:q.headcount>=120?"High load":"Moderate" }
+  };
+  q.orderId=id; return id;
+}
+
+function renderQuote(s,key){
+  const q=QUOTES[key]; if(!q){ OPEN_QUOTE=null; return render(); }
+  if(QVIEW==="customer") return renderCustomerQuote(s,q);
+  const t=quoteTotals(q); const draft=q.status==="Draft";
+  s.innerHTML="";
+  const back=el('<div class="row" style="margin-bottom:12px;gap:8px"><button class="btn sm ghost">← Back to Pipeline</button></div>');
+  back.querySelector("button").onclick=()=>{ OPEN_QUOTE=null; SCREEN="catering"; renderNav(); render(); };
+  s.appendChild(back);
+  const stCls={Draft:"",Sent:"ember",Viewed:"blue",Accepted:"green",Converted:"green",Expired:"red"}[q.status]||"";
+  const hd=el('<div class="page-head"><div><h1>'+quoteLabel(q)+' · Quote Composer</h1><div class="sub">'+q.customer+' · '+q.contact+' &nbsp;<span class="tag '+stCls+'">'+q.status+'</span></div></div></div>');
+  if(draft){ const send=el('<button class="btn primary primary">Preview & send →</button>'); send.onclick=()=>{QVIEW="customer";render();}; hd.appendChild(send); }
+  else { const v=el('<button class="btn primary primary">View customer page</button>'); v.onclick=()=>{QVIEW="customer";render();}; hd.appendChild(v); }
+  s.appendChild(hd);
+  if(!draft) s.appendChild(el('<div class="lockbar">🔒 <b style="color:var(--ink)">Sent</b> — a sent quote can\'t be edited. Duplicate it into a new version to make changes (quotes are versioned).</div>'));
+
+  const grid=el('<div class="qgrid"></div>');
+  // ---- LEFT: builder ----
+  const left=el('<div></div>');
+  const cust=el('<div class="card"><h3>Customer & event</h3><div class="csub">Auto-filled from the lead · edit event details</div></div>');
+  cust.appendChild(el('<div class="ord-facts" style="margin:6px 0 12px"><div class="f"><div class="l">Customer</div><div>'+q.customer+'</div></div><div class="f"><div class="l">Contact</div><div>'+q.contact+'</div></div><div class="f"><div class="l">Phone</div><div>'+q.phone+'</div></div></div>'));
+  const grid2=el('<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px"></div>');
+  const ed=el('<div><div class="label" style="margin-top:0">Event date</div></div>'); const edi=el('<input class="qin" style="width:100%" value="'+(q.eventDate||'')+'" placeholder="e.g. Sep 20">'); edi.disabled=!draft; edi.onchange=e=>qSetField(key,"eventDate",e.target.value); ed.appendChild(edi); grid2.appendChild(ed);
+  const hc=el('<div><div class="label" style="margin-top:0">Headcount</div></div>'); const hci=el('<input class="qin" type="number" style="width:100%" value="'+q.headcount+'">'); hci.disabled=!draft; hci.onchange=e=>{qSetField(key,"headcount",Math.max(1,+e.target.value||1));render();}; hc.appendChild(hci); grid2.appendChild(hc);
+  cust.appendChild(grid2);
+  cust.appendChild(el('<div class="label">Service type</div>'));
+  const seg=el('<div class="seg"></div>'); ["Drop-off","Delivery + Setup","Full-service"].forEach(sv=>{ const b=el('<button class="btn sm '+(q.serviceType===sv?'on':'')+'">'+sv+'</button>'); if(draft)b.onclick=()=>qSetService(key,sv); else b.disabled=true; seg.appendChild(b); }); cust.appendChild(seg);
+  left.appendChild(cust);
+
+  const pk=el('<div class="card" style="margin-top:16px"><h3>Package</h3><div class="csub">Per-guest packages · pick one (× '+q.headcount+' guests)</div></div>');
+  PACKAGES.forEach((p,i)=>{ const on=q.package&&q.package.id===p.id; const c=el('<div class="pkg '+(on?'on':'')+'"><div class="row between"><div><div class="pn">'+p.name+'</div><div class="pd">'+p.desc+'</div></div><div style="text-align:right"><div class="pp">'+money(p.perHead)+'/guest</div><div class="mut2" style="font-size:12px">'+(on?money(p.perHead*q.headcount):'')+'</div></div></div></div>'); if(draft)c.onclick=()=>qSetPackage(key,i); pk.appendChild(c); }); left.appendChild(pk);
+
+  const ala=el('<div class="card" style="margin-top:16px"><h3>A la carte add-ons</h3><div class="csub">Tap + to add extras</div></div>');
+  ALACARTE.forEach((it,i)=>{ const qty=qGetAla(q,it.name); const row=el('<div class="qline"><span>'+it.name+'</span><span class="mut2">'+money(it.price)+'</span></div>'); const stp=el('<div class="stepper2"></div>'); if(draft){ if(qty>0){ const m=el('<button>−</button>'); m.onclick=()=>qDecAla(key,i); stp.appendChild(m); } stp.appendChild(el('<b style="min-width:16px;text-align:center">'+qty+'</b>')); const p=el('<button>+</button>'); p.onclick=()=>qAddAla(key,i); stp.appendChild(p); } else stp.appendChild(el('<b>'+qty+'</b>')); row.appendChild(stp); ala.appendChild(row); }); left.appendChild(ala);
+
+  const fees=el('<div class="card" style="margin-top:16px"><h3>Fees, deposit & terms</h3></div>');
+  const fg=el('<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px"></div>');
+  const df=el('<div><div class="label" style="margin-top:0">Delivery fee</div></div>'); const dfi=el('<input class="qin" type="number" style="width:100%" value="'+q.deliveryFee+'">'); dfi.disabled=!draft; dfi.onchange=e=>{qSetField(key,"deliveryFee",+e.target.value||0);render();}; df.appendChild(dfi); fg.appendChild(df);
+  const sf=el('<div><div class="label" style="margin-top:0">Setup fee</div></div>'); const sfi=el('<input class="qin" type="number" style="width:100%" value="'+q.setupFee+'">'); sfi.disabled=!draft; sfi.onchange=e=>{qSetField(key,"setupFee",+e.target.value||0);render();}; sf.appendChild(sfi); fg.appendChild(sf);
+  fees.appendChild(fg);
+  fees.appendChild(el('<div class="label">Deposit required</div>'));
+  const dseg=el('<div class="seg"></div>'); [[0.3,"30%"],[0.5,"50%"]].forEach(d=>{ const b=el('<button class="btn sm '+(q.depositPct===d[0]?'on':'')+'">'+d[1]+'</button>'); if(draft)b.onclick=()=>qSetDeposit(key,d[0]); else b.disabled=true; dseg.appendChild(b); }); fees.appendChild(dseg);
+  const bd=el('<div><div class="label">Balance due date</div></div>'); const bdi=el('<input class="qin" style="width:100%" value="'+(q.balanceDue||'')+'" placeholder="e.g. 3 days before event">'); bdi.disabled=!draft; bdi.onchange=e=>qSetField(key,"balanceDue",e.target.value); bd.appendChild(bdi); fees.appendChild(bd);
+  left.appendChild(fees);
+  grid.appendChild(left);
+
+  // ---- RIGHT: summary ----
+  const right=el('<div class="qsum"></div>');
+  const sum=el('<div class="card"><h3>Quote summary</h3><div class="csub">'+q.headcount+' guests · '+q.serviceType+'</div></div>');
+  if(q.package) sum.appendChild(el('<div class="sumrow"><span>'+q.package.name+' × '+q.headcount+'</span><span>'+money(t.pkg)+'</span></div>'));
+  (q.alacarte||[]).forEach(a=>sum.appendChild(el('<div class="sumrow"><span>'+a.name+' × '+a.qty+'</span><span>'+money(a.price*a.qty)+'</span></div>')));
+  if(t.fees) sum.appendChild(el('<div class="sumrow"><span>Delivery & setup</span><span>'+money(t.fees)+'</span></div>'));
+  sum.appendChild(el('<div class="sumrow"><span class="muted">Subtotal</span><span>'+money(t.subtotal)+'</span></div>'));
+  sum.appendChild(el('<div class="sumrow"><span class="muted">Tax (7.5%)</span><span>'+money(t.tax)+'</span></div>'));
+  sum.appendChild(el('<div class="sumrow big"><span>Total</span><span>'+money(t.total)+'</span></div>'));
+  sum.appendChild(el('<div class="sumrow"><span class="muted">Deposit ('+Math.round(q.depositPct*100)+'%)</span><span style="color:var(--ember2)">'+money(t.deposit)+'</span></div>'));
+  sum.appendChild(el('<div class="sumrow"><span class="muted">Balance</span><span>'+money(t.total-t.deposit)+'</span></div>'));
+  // owner margin
+  if(ROLE!=="kitchen"){ const mb=el('<div class="margin-box"></div>'); mb.appendChild(el('<div class="mh">Owner only · margin</div>')); mb.appendChild(el('<div class="sumrow" style="padding:4px 0"><span class="muted">Est. food cost</span><span>'+money(t.cost)+'</span></div>')); mb.appendChild(el('<div class="sumrow" style="padding:4px 0"><span class="muted">Gross margin</span><span style="color:'+(t.margin>=0.6?'var(--green)':t.margin>=0.4?'var(--amber)':'var(--red)')+'">'+Math.round(t.margin*100)+'%</span></div>')); sum.appendChild(mb); }
+  // actions
+  const a=el('<div style="margin-top:14px"></div>');
+  if(draft){ const prev=el('<button class="btn sm" style="width:100%;margin-bottom:8px">Preview customer page</button>'); prev.onclick=()=>{QVIEW="customer";render();}; const send=el('<button class="btn primary" style="width:100%;padding:11px">Send quote</button>'); send.onclick=()=>sendQuote(key); a.appendChild(prev); a.appendChild(send); }
+  else { const v=el('<button class="btn primary" style="width:100%;padding:11px;margin-bottom:8px">View customer page →</button>'); v.onclick=()=>{QVIEW="customer";render();}; const dup=el('<button class="btn sm" style="width:100%">Duplicate to new version</button>'); dup.onclick=()=>duplicateQuote(key); a.appendChild(v); a.appendChild(dup); if(q.status==="Expired"){ const rv=el('<button class="btn sm" style="width:100%;margin-top:8px;border-color:var(--amber);color:var(--amber)">Revalidate quote</button>'); rv.onclick=()=>revalidateQuote(key); a.appendChild(rv); } }
+  sum.appendChild(a);
+  right.appendChild(sum);
+  grid.appendChild(right);
+  s.appendChild(grid);
+}
+
+function renderCustomerQuote(s,q){
+  const t=quoteTotals(q); s.innerHTML="";
+  // prototype control strip
+  const sim=el('<div class="simbar"><span class="st">Prototype controls</span></div>');
+  const back=el('<button class="btn sm ghost">← Back to composer</button>'); back.onclick=()=>{QVIEW="compose";render();}; sim.appendChild(back);
+  if(q.status==="Draft"){ sim.appendChild(el('<span class="tag amber">Preview — not sent yet</span>')); const sd=el('<button class="btn sm primary">Send quote</button>'); sd.onclick=()=>sendQuote(q.key); sim.appendChild(sd); }
+  else if(q.status==="Sent"){ sim.appendChild(el('<span class="tag ember">Sent · awaiting customer</span>')); const mv=el('<button class="btn sm">Simulate: customer opened</button>'); mv.onclick=()=>markViewed(q.key); sim.appendChild(mv); }
+  else if(q.status==="Viewed"){ sim.appendChild(el('<span class="tag blue">Viewed by customer</span>')); }
+  else if(q.status==="Accepted"){ sim.appendChild(el('<span class="tag green">Accepted</span>')); }
+  s.appendChild(sim);
+
+  const wrap=el('<div class="cust-wrap"></div>');
+  const c=el('<div class="cust-quote"></div>');
+  c.appendChild(el('<div class="brand"><span class="a">Station House</span> BBQ</div>'));
+  c.appendChild(el('<div class="cq-rule"></div>'));
+  c.appendChild(el('<h2>Catering Quote</h2>'));
+  c.appendChild(el('<div class="cq-sub">Prepared for '+q.customer+' · '+(q.contact||'')+' &nbsp;·&nbsp; '+quoteLabel(q)+(q.expiresAt?' · valid '+q.expiresAt:'')+'</div>'));
+  c.appendChild(el('<div class="cq-line"><span><b>Event</b><div class="d">'+(q.eventDate||'Date TBD')+' · '+q.serviceType+'</div></span><span>'+q.headcount+' guests</span></div>'));
+  if(q.package) c.appendChild(el('<div class="cq-line"><span><b>'+q.package.name+'</b><div class="d">'+q.package.desc+' · '+money(q.package.perHead)+'/guest</div></span><span>'+money(t.pkg)+'</span></div>'));
+  (q.alacarte||[]).forEach(a=>c.appendChild(el('<div class="cq-line"><span>'+a.name+'<div class="d">× '+a.qty+'</div></span><span>'+money(a.price*a.qty)+'</span></div>')));
+  if(t.fees) c.appendChild(el('<div class="cq-line"><span>Delivery & setup</span><span>'+money(t.fees)+'</span></div>'));
+  c.appendChild(el('<div class="cq-tot"><span>Subtotal</span><span>'+money(t.subtotal)+'</span></div>'));
+  c.appendChild(el('<div class="cq-tot"><span>Tax</span><span>'+money(t.tax)+'</span></div>'));
+  c.appendChild(el('<div class="cq-tot big"><span>Total</span><span>'+money(t.total)+'</span></div>'));
+  const dep=el('<div class="cq-dep"><div><div class="l">Deposit to confirm ('+Math.round(q.depositPct*100)+'%)</div><div class="v">'+money(t.deposit)+'</div></div><div style="text-align:right"><div class="l">Balance</div><div style="font-size:15px">'+money(t.total-t.deposit)+(q.balanceDue?' · due '+q.balanceDue:'')+'</div></div></div>');
+  c.appendChild(dep);
+  // CTA
+  if(q.status==="Viewed"){ const acc=el('<button class="btn primary" style="width:100%;padding:13px;margin-top:18px;font-size:15px">Accept this quote</button>'); acc.onclick=()=>acceptQuote(q.key); c.appendChild(acc); }
+  else if(q.status==="Accepted"){ const pay=el('<button class="btn primary" style="width:100%;padding:13px;margin-top:18px;font-size:15px">Pay '+money(t.deposit)+' deposit to confirm</button>'); pay.onclick=()=>payDeposit(q.key); c.appendChild(pay); c.appendChild(el('<div style="text-align:center;color:#888;font-size:11px;margin-top:8px">Simulated payment — no real card is charged</div>')); }
+  else if(q.status==="Sent"){ c.appendChild(el('<div style="text-align:center;color:#888;font-size:13px;margin-top:18px">Awaiting customer review…</div>')); }
+  else if(q.status==="Converted"){ c.appendChild(el('<div style="text-align:center;color:var(--green);font-weight:700;margin-top:18px">✓ Deposit paid — order created</div>')); }
+  else if(q.status==="Draft"){ c.appendChild(el('<div style="text-align:center;color:#888;font-size:12px;margin-top:18px">This is a live preview of the customer page. Use “Send quote” above to send it.</div>')); }
+  wrap.appendChild(c); s.appendChild(wrap);
 }
 </script>
 </body>
