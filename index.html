@@ -173,6 +173,45 @@
     .col{min-width:200px}
     .prodcard .pq{font-size:34px}
   }
+  /* ---------- ORDER RECORD (Sprint 2) ---------- */
+  .ord-head{background:linear-gradient(120deg,#1a1206,var(--panel) 62%);border:1px solid var(--line2);border-radius:14px;padding:20px 22px;margin-bottom:14px}
+  .ord-title{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:10px}
+  .ord-money{display:flex;gap:30px;margin:15px 0 14px;flex-wrap:wrap}
+  .ord-money .m .l{font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.08em}
+  .ord-money .m .v{font-size:27px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+  .ord-facts{display:flex;flex-wrap:wrap;gap:26px}
+  .ord-facts .f .l{font-size:10px;color:var(--mut2);text-transform:uppercase;letter-spacing:.08em}
+  .ord-facts .f > div:last-child{font-size:13px;margin-top:2px}
+  .otabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+  .otab{padding:10px 15px;font-size:13px;font-weight:600;color:var(--mut);border-bottom:2px solid transparent;cursor:pointer}
+  .otab:hover{color:var(--ink)}
+  .otab.on{color:var(--ink);border-bottom-color:var(--ember)}
+  .lockbar{display:flex;align-items:center;gap:10px;background:#141518;border:1px solid var(--line2);border-left:3px solid var(--smoke);border-radius:10px;padding:12px 16px;margin-bottom:16px;color:var(--mut);font-size:13px}
+  .ai-card{background:linear-gradient(120deg,#101a16,var(--panel) 60%);border:1px solid #1e3a2c;border-radius:12px;padding:18px 20px;margin-bottom:16px}
+  .ai-card .ah{font-size:12px;color:var(--green);font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .ai-row{display:flex;gap:11px;padding:9px 0;border-top:1px solid var(--line);font-size:13px}
+  .ai-row:first-of-type{border-top:none}
+  .ai-row .k{color:var(--mut2);min-width:120px;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  .amend{border:1px solid var(--line);border-left:3px solid var(--blue);border-radius:8px;padding:11px 13px;margin-bottom:8px;font-size:13px}
+  .diff-old{text-decoration:line-through;color:var(--mut2)} .diff-new{color:var(--blue);font-weight:600}
+  .paypulse{animation:opulse 1.3s ease}
+  @keyframes opulse{0%{box-shadow:0 0 0 0 rgba(70,167,88,.55)}100%{box-shadow:0 0 0 18px rgba(70,167,88,0)}}
+  .prodflow{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+  .pf{font-size:11px;padding:5px 11px;border-radius:20px;background:#0f1116;border:1px solid var(--line);color:var(--mut2)}
+  .pf.done{background:var(--greendim);color:var(--green);border-color:transparent}
+  .pf.cur{background:var(--ember);color:#231000;border-color:transparent;font-weight:700}
+  .lbls{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .ord-tl{border-left:2px solid var(--line2);margin-left:6px;padding-left:16px}
+  .ord-tl .e{position:relative;padding:0 0 15px}
+  .ord-tl .e::before{content:"";position:absolute;left:-23px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--ember)}
+  .ord-tl .e.pending::before{background:var(--mut2)}
+  .ord-tl .e.pending{opacity:.55}
+  .ord-tl .et{font-size:13px;font-weight:600} .ord-tl .en{font-size:12px;color:var(--mut)} .ord-tl .em{font-size:11px;color:var(--mut2);margin-top:1px}
+  .whoc{font-size:10px;padding:1px 7px;border-radius:20px;border:1px solid var(--line2);color:var(--mut);margin-left:6px}
+  .whoc.ai{background:var(--greendim);color:var(--green);border-color:transparent}
+  .whoc.wf{background:#12203a;color:var(--blue);border-color:transparent}
+  @media(max-width:768px){ .ord-money{gap:18px} .ord-money .m .v{font-size:22px} .ai-row{flex-direction:column;gap:2px} .ai-row .k{min-width:0} .lbls{grid-template-columns:1fr} }
+  @media print{ .lblsheet,.lblsheet *{visibility:visible} }
   .viewas{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--emberdim);color:var(--ember2);border:1px solid var(--ember);padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;z-index:60;box-shadow:0 8px 30px rgba(0,0,0,.4)}
   @media print{
     body *{visibility:hidden}
@@ -234,6 +273,9 @@ const el = h => { const t=document.createElement("template"); t.innerHTML=h.trim
 
 let ROLE = "owner";
 let SCREEN = "dashboard";
+let OPEN_ORDER = null;      // Sprint 2: currently open Order Record id
+let ORDER_TAB = "overview"; // active tab within the Order Record
+let AMEND_OPEN = false;     // amendment form visible
 
 const NAV = [
   ["dashboard","Today","⌂"],
@@ -381,13 +423,14 @@ function renderNav(){
   items.forEach(([id,label,ic])=>{
     const b = badges[id]? `<span class="badge">${badges[id]}</span>`:"";
     const it=el(`<div class="navitem ${id===SCREEN?'active':''}"><span class="ic">${ic}</span>${label}${b}</div>`);
-    it.onclick=()=>{ SCREEN=id; renderNav(); render(); };
+    it.onclick=()=>{ OPEN_ORDER=null; AMEND_OPEN=false; SCREEN=id; renderNav(); render(); };
     nav.appendChild(it);
   });
 }
 
 function render(){
   const s=document.getElementById("stage"); window.scrollTo(0,0); s.scrollTop=0;
+  if(SCREEN==="orders" && OPEN_ORDER){ renderOrder(s, OPEN_ORDER); return; }
   ({dashboard:scrDashboard,catering:scrCatering,customers:scrCustomers,orders:scrOrders,programs:scrPrograms,kitchen:scrKitchen,marketing:scrMarketing,reports:scrReports,settings:scrSettings}[SCREEN]||scrDashboard)(s);
 }
 function head(title,sub,primaryLabel,primaryFn){
@@ -557,12 +600,14 @@ function openCustomer(id){
 /* ---------- ORDERS ---------- */
 function scrOrders(s){
   s.innerHTML="";
-  s.appendChild(head("Orders","All orders across catering, Cuban & BBQ pre-orders","+ New order"));
+  s.appendChild(head("Orders","All orders across catering, Cuban & BBQ pre-orders · click any order to open its record","+ New order"));
   const t=el(`<div class="card"><table><thead><tr><th>Order</th><th>Customer</th><th>Type</th><th>Status</th>${ROLE==="kitchen"?"":"<th>Amount</th>"}<th>When</th><th>Kitchen</th></tr></thead><tbody></tbody></table></div>`);
   const tb=t.querySelector("tbody");
   ORDERS.forEach(o=>{
     const stcls = o.status==="Paid"||o.status==="Fulfilled"?"green":o.status.includes("Balance")?"red":"ember";
-    tb.appendChild(el(`<tr class="clk"><td><b>${o.id}</b></td><td>${o.cust}</td><td class="muted">${o.type}</td><td><span class="tag ${stcls}">${o.status}</span></td>${ROLE==="kitchen"?"":`<td>${money(o.amount)}</td>`}<td class="muted">${o.when}</td><td><span class="tag">${o.kitchen}</span></td></tr>`));
+    const tr=el(`<tr class="clk"><td><b>${o.id}</b></td><td>${o.cust}</td><td class="muted">${o.type}</td><td><span class="tag ${stcls}">${o.status}</span></td>${ROLE==="kitchen"?"":`<td>${money(o.amount)}</td>`}<td class="muted">${o.when}</td><td><span class="tag">${o.kitchen}</span></td></tr>`);
+    tr.onclick=()=>openOrder(o.id);
+    tb.appendChild(tr);
   });
   s.appendChild(t);
 }
@@ -752,6 +797,333 @@ function scrSettings(s){
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Google Ads</span><span class="tag green">Connected</span></div>
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Meta Ads</span><span class="tag green">Connected</span></div></div>`));
   s.appendChild(g);
+}
+
+/* =========================================================
+   ORDER RECORD (Sprint 2) — the operational hub
+   ========================================================= */
+const ORD = {
+  "CAT-1038": {
+    id:"CAT-1038", customerId:"C-301", customer:"Megan Carter", company:"Carter Wedding", program:"Catering",
+    status:"Locked", priority:"High", locked:true, version:2,
+    pickup:"Sat Aug 30 · 5:00 PM", owner:"Charles", guests:150, location:"Oak Hall, Riverview",
+    total:9600, subtotal:8928, tax:672, paid:4800, refunds:0,
+    dietary:["Tree nuts — niece (no cross-contact)"], source:"Website (Google, Mar 2026)", referral:"—",
+    phone:"813-555-0155", email:"megan.c@email.com", address:"Oak Hall, 4120 Riverview Dr, Riverview FL",
+    ltv:9600, prevOrders:[["Tasting deposit","$150 · Aug 19"]],
+    items:[{name:"Sliced Brisket",qty:"55 lb"},{name:"Pulled Pork",qty:"40 lb"},{name:"Cubans",qty:"30"},{name:"Mac & Cheese",qty:"6 pans"},{name:"Slaw",qty:"4 pans"},{name:"Baked Beans",qty:"4 pans"}],
+    production:"Scheduled", prepProgress:0, packaging:"Chafing trays ×12 · sterno · serving utensils",
+    amendments:[{v:2, change:"+5 guests → +2 lb brisket", reason:"Client added headcount", approver:"Sarah (CM)", when:"Aug 28"}],
+    payments:[{when:"Aug 26", amt:4800, method:"Stripe · deposit (50%)", type:"deposit"}],
+    tasks:[{t:"Confirm final headcount", done:true},{t:"Send prep list to kitchen (due Aug 28)", done:false},{t:"Confirm delivery vehicle & driver", done:false}],
+    staff:["Charles (owner)","Sarah (CM)","Pit team"],
+    notes:[["Sarah","Client wants brisket sliced thin; Cubans pressed on-site if possible.","Aug 28"]],
+    reviews:[],
+    comms:[["Balance reminder queued","Auto-send Aug 28","workflow"],["Quote viewed ×3","Mobile","Aug 20"],["Discovery call","Brisket + Cubans mix; tree-nut allergy noted","Jun 30"]],
+    timeline:[
+      {who:"system", title:"Lead Created", note:"Website inquiry form", time:"Aug 18", done:true},
+      {who:"human", title:"Quote Sent", note:"$9,600 · 150 guests · brisket + pork + Cubans + 3 sides", time:"Aug 19", done:true},
+      {who:"workflow", title:"Quote Viewed", note:"Opened 3× on mobile", time:"Aug 20", done:true},
+      {who:"human", title:"Deposit Paid", note:"$4,800 (50%) · Stripe", time:"Aug 26", done:true},
+      {who:"human", title:"Order Locked", note:"Menu & pricing frozen · v1", time:"Aug 28", done:true},
+      {who:"human", title:"Amendment v2", note:"+5 guests → +2 lb brisket · approved by Sarah", time:"Aug 28", done:true},
+      {who:"ai", title:"Kitchen Started", note:"Scheduled Aug 30 · 2:00 AM smoke", time:"— pending", done:false},
+      {who:"", title:"Ready for pickup", note:"Target 4:30 PM", time:"— pending", done:false},
+      {who:"", title:"Picked Up", note:"5:00 PM window", time:"— pending", done:false},
+      {who:"", title:"Completed", note:"", time:"— pending", done:false},
+      {who:"", title:"Review Requested", note:"Auto-send +1 day", time:"— pending", done:false},
+      {who:"", title:"Repeat Purchase", note:"Nurture: anniversary +12mo", time:"— pending", done:false}
+    ],
+    ai:{
+      risks:["Balance $4,800 due Aug 28 — not yet collected","Tree-nut allergy — enforce no cross-contact at the pass"],
+      next:"Send prep list to kitchen (due Aug 28) and collect the remaining balance",
+      sentiment:"Positive — opened quote 3×, responsive on calls",
+      upsell:"Dessert platters (+$450) — 60% of weddings add them",
+      conflicts:"Aug 30 also has a 60-guest pickup — kitchen load is high that day",
+      capacity:"150 guests ≈ 65% of Saturday brisket capacity"
+    }
+  }
+};
+function genAI(row,paid,bal){ return {
+  risks: bal>0?["Outstanding balance "+money(bal)]:["None — paid in full"],
+  next: bal>0?"Collect remaining balance":"Confirm pickup and begin production",
+  sentiment:"Neutral — new order",
+  upsell: row.type==="Cuban"?"Offer a 3-pack next Thursday":"Suggest sides add-on",
+  conflicts:"None detected",
+  capacity: row.type==="Catering"?"Moderate load":"Low load"
+};}
+function baseTimeline(row,paid){ return [
+  {who:"system",title:"Lead Created",note:row.type+" order created",time:"—",done:true},
+  {who: paid?"human":"", title:"Deposit Paid", note: paid?money(paid)+" · Stripe":"—", time: paid?"—":"— pending", done: !!paid},
+  {who:"", title:"Kitchen Started", note:"", time:"— pending", done: row.kitchen==="Done"},
+  {who:"", title:"Picked Up", note:"", time:"— pending", done: row.kitchen==="Done"}
+];}
+function getOrder(id){
+  if(ORD[id]) return ORD[id];
+  const row=ORDERS.find(o=>o.id===id)||{id,cust:"Customer",type:"Order",status:"Confirmed",amount:0,when:"—",kitchen:"Queued"};
+  const paid = (row.status==="Paid"||row.status==="Fulfilled")?row.amount : row.status==="Deposit paid"?Math.round(row.amount*0.3) : row.status.indexOf("Balance")>=0?Math.round(row.amount*0.5):0;
+  const bal=row.amount-paid;
+  ORD[id]={
+    id, customerId:null, customer:row.cust, company:"", program:row.type,
+    status: row.kitchen==="Done"?"Fulfilled": (row.status==="Paid"?"Confirmed":row.status),
+    priority: row.type==="Catering"?"High":"Normal", locked: (row.kitchen==="Scheduled"||row.kitchen==="Done"), version:1,
+    pickup:row.when, owner:"Charles", guests: row.type==="Catering"?100:1, location:"Pickup counter",
+    total:row.amount, subtotal:Math.round(row.amount/1.075), tax:Math.round(row.amount-row.amount/1.075), paid, refunds:0,
+    dietary:[], source:"—", referral:"—", phone:"—", email:"—", address:"Pickup counter",
+    ltv:row.amount, prevOrders:[],
+    items: row.type==="Cuban"?[{name:"Cuban Sandwich",qty:String(Math.max(1,Math.round(row.amount/14)))}]: row.type==="BBQ"?[{name:"BBQ Family Pack",qty:"1"}]:[{name:"Catering package",qty:"1"}],
+    production: row.kitchen==="Done"?"Picked up": (row.kitchen==="Queued"?"Scheduled":"Scheduled"), prepProgress: row.kitchen==="Done"?100:0, packaging:"Standard to-go",
+    amendments:[], payments: paid?[{when:row.when,amt:paid,method:"Stripe",type:"payment"}]:[],
+    tasks:[{t:"Confirm pickup",done:false}], staff:["Charles"], notes:[], reviews:[], comms:[],
+    timeline: baseTimeline(row,paid), ai: genAI(row,paid,bal)
+  };
+  return ORD[id];
+}
+function openOrder(id){ getOrder(id); OPEN_ORDER=id; AMEND_OPEN=false; ORDER_TAB = ROLE==="kitchen"?"kitchen":"overview"; SCREEN="orders"; renderNav(); render(); }
+function whoChip(who){ if(who==="ai")return '<span class="whoc ai">✦ AI</span>'; if(who==="workflow")return '<span class="whoc wf">⚙ Workflow</span>'; if(who==="system")return '<span class="whoc">⚙ System</span>'; if(who==="human")return '<span class="whoc">👤 Staff</span>'; return ''; }
+
+function renderOrder(s,id){
+  const o=getOrder(id); o.balance=o.total-o.paid; const kitchen=ROLE==="kitchen";
+  s.innerHTML="";
+  const back=el('<div class="row" style="margin-bottom:12px"><button class="btn sm ghost">← Back to Orders</button></div>');
+  back.querySelector("button").onclick=()=>{ OPEN_ORDER=null; render(); };
+  s.appendChild(back);
+
+  // HEADER
+  const statusCls = (o.status==="Fulfilled"||o.status==="Completed")?"green":(o.status.indexOf("Balance")>=0?"red":(o.status==="Locked"?"":"ember"));
+  const head=el('<div class="ord-head"></div>');
+  const capTag = o.guests>=120?'<span class="tag amber">Capacity: high load</span>':(o.program==="Catering"?'<span class="tag">Capacity: moderate</span>':'<span class="tag">Capacity: low</span>');
+  head.appendChild(el('<div class="row" style="gap:8px;flex-wrap:wrap"><span class="tag ember">'+o.id+'</span><span class="tag '+statusCls+'">'+o.status+'</span>'+(o.priority==="High"?'<span class="tag red">High priority</span>':'<span class="tag">Normal</span>')+(o.locked?'<span class="tag" style="color:var(--smoke)">🔒 Kitchen Locked</span>':'<span class="tag green">Unlocked</span>')+capTag+'</div>'));
+  head.appendChild(el('<div class="ord-title">'+o.customer+(o.company?' · '+o.company:'')+'</div>'));
+  head.appendChild(el('<div class="muted" style="font-size:13px">'+o.program+' · '+o.guests+(o.program==="Catering"?' guests':' order')+' · pickup '+o.pickup+'</div>'));
+  if(!kitchen){
+    const m=el('<div class="ord-money" id="ordMoney"></div>');
+    m.appendChild(el('<div class="m"><div class="l">Order Total</div><div class="v">'+money(o.total)+'</div></div>'));
+    m.appendChild(el('<div class="m"><div class="l">Paid</div><div class="v" style="color:var(--green)">'+money(o.paid)+'</div></div>'));
+    m.appendChild(el('<div class="m"><div class="l">Balance</div><div class="v" style="color:'+(o.balance>0?'var(--amber)':'var(--green)')+'">'+(o.balance>0?money(o.balance):'Paid ✓')+'</div></div>'));
+    head.appendChild(m);
+  }
+  const facts=el('<div class="ord-facts"></div>');
+  [['Program',o.program],['Pickup',o.pickup],['Owner',o.owner],['Assigned',(o.staff||[]).join(', ')||'—'],['Dietary',(o.dietary&&o.dietary.length)?o.dietary.join(', '):'None']].forEach(f=>facts.appendChild(el('<div class="f"><div class="l">'+f[0]+'</div><div>'+f[1]+'</div></div>')));
+  head.appendChild(facts);
+  const acts=el('<div class="row" style="gap:8px;margin-top:16px;flex-wrap:wrap"></div>');
+  if(!kitchen && o.balance>0){ const b=el('<button class="btn primary sm">Take payment · '+money(o.balance)+'</button>'); b.onclick=()=>{ORDER_TAB="financial";render();}; acts.appendChild(b); }
+  else if(o.production!=="Picked up"&&o.production!=="Completed"){ const b=el('<button class="btn primary sm">'+(o.production==="In production"?"Mark ready":o.production==="Ready"?"Mark picked up":"Start production")+'</button>'); b.onclick=()=>advanceProduction(id); acts.appendChild(b); }
+  if(!kitchen){ const lb=el('<button class="btn sm">'+(o.locked?'Unlock (owner)':'Enable Kitchen Lock')+'</button>'); lb.onclick=()=>toggleLock(id); acts.appendChild(lb);
+    const ab=el('<button class="btn sm">Request Amendment</button>'); ab.onclick=()=>{ORDER_TAB="kitchen";AMEND_OPEN=true;render();}; acts.appendChild(ab); }
+  const pb=el('<button class="btn sm ghost">🖨 Print prep sheet</button>'); pb.onclick=()=>printPrep(id); acts.appendChild(pb);
+  head.appendChild(acts);
+  s.appendChild(head);
+
+  if(o.locked && !kitchen) s.appendChild(el('<div class="lockbar">🔒 <b style="color:var(--ink)">Locked</b> — pricing & menu are read-only. Changes require an Amendment (R-09). Current version v'+o.version+'.</div>'));
+
+  const tabs = kitchen?[["kitchen","Kitchen"],["timeline","Timeline"]]:[["overview","Overview"],["financial","Financial"],["kitchen","Kitchen"],["customer","Customer"],["operations","Operations"],["timeline","Timeline"]];
+  if(!tabs.find(t=>t[0]===ORDER_TAB)) ORDER_TAB=tabs[0][0];
+  const tb=el('<div class="otabs"></div>');
+  tabs.forEach(function(t){ const el2=el('<div class="otab '+(ORDER_TAB===t[0]?'on':'')+'">'+t[1]+'</div>'); el2.onclick=()=>{ORDER_TAB=t[0];render();}; tb.appendChild(el2); });
+  s.appendChild(tb);
+  const body=el('<div></div>'); s.appendChild(body);
+  ({overview:otOverview,financial:otFinancial,kitchen:otKitchen,customer:otCustomer,operations:otOperations,timeline:otTimeline}[ORDER_TAB]||otOverview)(body,o);
+}
+
+function aiCard(o){
+  const c=el('<div class="ai-card"></div>');
+  c.appendChild(el('<div class="ah">✦ FireDrop AI · Order intelligence <span class="mut2" style="font-weight:600;letter-spacing:0;text-transform:none;margin-left:auto">recommends & drafts — never acts alone</span></div>'));
+  const rows=[["Risks", (o.ai.risks||[]).map(r=>'⚠ '+r).join('<br>')],["Suggested next", o.ai.next],["Outstanding tasks", (o.tasks||[]).filter(t=>!t.done).length+" open"],["Sentiment", o.ai.sentiment],["Upsell", o.ai.upsell],["Scheduling", o.ai.conflicts],["Capacity", o.ai.capacity]];
+  rows.forEach(r=>c.appendChild(el('<div class="ai-row"><div class="k">'+r[0]+'</div><div>'+r[1]+'</div></div>')));
+  return c;
+}
+function otOverview(b,o){
+  b.appendChild(aiCard(o));
+  const g=el('<div class="grid" style="grid-template-columns:1fr 1fr"></div>');
+  const money1=el('<div class="card"><h3>Money</h3><div class="csub">Live from payments</div></div>');
+  money1.appendChild(el('<div class="between" style="padding:6px 0"><span class="muted">Total</span><b>'+money(o.total)+'</b></div>'));
+  money1.appendChild(el('<div class="between" style="padding:6px 0"><span class="muted">Paid</span><b style="color:var(--green)">'+money(o.paid)+'</b></div>'));
+  money1.appendChild(el('<div class="between" style="padding:6px 0;border-top:1px solid var(--line)"><span class="muted">Balance</span><b style="color:'+(o.balance>0?'var(--amber)':'var(--green)')+'">'+(o.balance>0?money(o.balance):'Paid ✓')+'</b></div>'));
+  const kbtn=el('<button class="btn sm" style="margin-top:10px">Go to Financial →</button>'); kbtn.onclick=()=>{ORDER_TAB="financial";render();}; money1.appendChild(kbtn);
+  g.appendChild(money1);
+  const kit=el('<div class="card"><h3>Kitchen</h3><div class="csub">Production status</div></div>');
+  kit.appendChild(el('<div class="between" style="padding:6px 0"><span class="muted">Status</span><span class="tag '+(o.production==="Picked up"||o.production==="Completed"?"green":"ember")+'">'+o.production+'</span></div>'));
+  kit.appendChild(el('<div class="between" style="padding:6px 0"><span class="muted">Prep progress</span><b>'+o.prepProgress+'%</b></div>'));
+  kit.appendChild(el('<div class="progress"><i style="width:'+o.prepProgress+'%"></i></div>'));
+  const kb=el('<button class="btn sm" style="margin-top:10px">Go to Kitchen →</button>'); kb.onclick=()=>{ORDER_TAB="kitchen";render();}; kit.appendChild(kb);
+  g.appendChild(kit);
+  b.appendChild(g);
+  const recent=el('<div class="card" style="margin-top:16px"><div class="between"><h3>Recent activity</h3><button class="btn sm ghost">Full timeline →</button></div></div>');
+  recent.querySelector("button").onclick=()=>{ORDER_TAB="timeline";render();};
+  const done=(o.timeline||[]).filter(e=>e.done).slice(-4).reverse();
+  const tl=el('<div class="ord-tl" style="margin-top:10px"></div>');
+  done.forEach(e=>tl.appendChild(el('<div class="e"><div class="et">'+e.title+whoChip(e.who)+'</div><div class="en">'+e.note+'</div><div class="em">'+e.time+'</div></div>')));
+  recent.appendChild(tl); b.appendChild(recent);
+}
+function otFinancial(b,o){
+  if(o.locked) b.appendChild(el('<div class="lockbar" style="border-left-color:var(--smoke)">🔒 Pricing is read-only while locked. Item/price changes require an Amendment. Collecting the balance is still allowed.</div>'));
+  const g=el('<div class="grid" style="grid-template-columns:1fr 1fr"></div>');
+  const sum=el('<div class="card"><h3>Summary</h3><div class="csub">Tax-inclusive total</div></div>');
+  [["Subtotal",o.subtotal],["Tax (7.5%)",o.tax],["Order Total",o.total],["Deposit / paid",o.paid],["Refunds",o.refunds]].forEach(r=>sum.appendChild(el('<div class="between" style="padding:7px 0;border-top:1px solid var(--line)"><span class="muted">'+r[0]+'</span><b>'+money(r[1])+'</b></div>')));
+  sum.appendChild(el('<div class="between" style="padding:9px 0;border-top:1px solid var(--line2)"><span>Outstanding balance</span><b id="ordBal" style="color:'+(o.balance>0?'var(--amber)':'var(--green)')+'">'+(o.balance>0?money(o.balance):'Paid in full ✓')+'</b></div>'));
+  g.appendChild(sum);
+  const pay=el('<div class="card"><h3>Quick Pay</h3><div class="csub">Simulated · no real card is charged in this prototype</div></div>');
+  if(o.balance>0){
+    const f=el('<div style="margin-top:8px"></div>');
+    f.appendChild(el('<div class="label" style="margin-top:0">Amount</div>'));
+    const inp=el('<input id="qpAmt" type="number" value="'+o.balance+'" style="width:100%;background:#0f1116;border:1px solid var(--line2);color:var(--ink);border-radius:8px;padding:10px 12px">');
+    f.appendChild(inp);
+    const row=el('<div class="row" style="gap:8px;margin-top:10px"></div>');
+    const b1=el('<button class="btn primary sm">Record payment</button>'); b1.onclick=()=>orderPay(o.id);
+    const b2=el('<button class="btn sm ghost">Send payment link</button>'); b2.onclick=()=>{ b2.textContent="Link sent ✓"; };
+    row.appendChild(b1); row.appendChild(b2); f.appendChild(row); pay.appendChild(f);
+  } else pay.appendChild(el('<div class="tag green" style="margin-top:8px">Paid in full — nothing due</div>'));
+  pay.appendChild(el('<div class="row" style="gap:8px;margin-top:14px"><button class="btn sm ghost">View invoice</button><button class="btn sm ghost">Download receipt</button></div>'));
+  g.appendChild(pay);
+  b.appendChild(g);
+  const hist=el('<div class="card" style="margin-top:16px"><h3>Payment history</h3></div>');
+  const t=el('<table style="margin-top:8px"><thead><tr><th>When</th><th>Method</th><th>Amount</th></tr></thead><tbody></tbody></table>');
+  const tbody=t.querySelector("tbody");
+  if((o.payments||[]).length) o.payments.forEach(p=>tbody.appendChild(el('<tr><td class="muted">'+p.when+'</td><td>'+p.method+'</td><td><b>'+money(p.amt)+'</b></td></tr>')));
+  else tbody.appendChild(el('<tr><td colspan="3" class="mut2">No payments yet</td></tr>'));
+  hist.appendChild(t); b.appendChild(hist);
+}
+function orderPay(id){
+  const o=getOrder(id); const inp=document.getElementById("qpAmt"); let amt=inp?Math.round(+inp.value):0;
+  if(!amt||amt<=0) return; amt=Math.min(amt,o.total-o.paid);
+  o.paid+=amt; o.payments.unshift({when:"just now",amt,method:"Stripe · Quick Pay",type:"payment"});
+  o.timeline.push({who:"human",title:"Payment received",note:money(amt)+" · Stripe · Quick Pay",time:"just now",done:true});
+  if(o.total-o.paid<=0){ o.ai.risks=["None — paid in full"]; }
+  render();
+  const m=document.getElementById("ordMoney"); if(m){ m.classList.add("paypulse"); }
+}
+function toggleLock(id){
+  const o=getOrder(id); o.locked=!o.locked;
+  if(o.locked){ if(o.status==="Confirmed"||o.status==="Deposit paid") o.status="Locked"; o.timeline.push({who:"human",title:"Order Locked",note:"Pricing & menu frozen · v"+o.version,time:"just now",done:true}); }
+  else { o.timeline.push({who:"human",title:"Order Unlocked",note:"Owner override — editing re-enabled",time:"just now",done:true}); }
+  render();
+}
+function otKitchen(b,o){
+  if(o.dietary&&o.dietary.length) b.appendChild(el('<div class="lockbar" style="border-left-color:var(--red);color:var(--red)"><b>⚠ DIETARY:</b> '+o.dietary.join(', ')+'</div>'));
+  // production flow
+  const flow=["Scheduled","In production","Ready","Picked up","Completed"]; const ci=Math.max(0,flow.indexOf(o.production));
+  const pcard=el('<div class="card"><div class="between"><h3>Production</h3><span class="tag '+(ci>=3?"green":"ember")+'">'+o.production+'</span></div></div>');
+  const pf=el('<div class="prodflow"></div>'); flow.forEach((f,i)=>pf.appendChild(el('<span class="pf '+(i<ci?'done':i===ci?'cur':'')+'">'+f+'</span>'))); pcard.appendChild(pf);
+  pcard.appendChild(el('<div class="progress" style="margin-top:6px"><i style="width:'+o.prepProgress+'%"></i></div>'));
+  pcard.appendChild(el('<div class="mut2" style="font-size:12px;margin-top:6px">Prep progress '+o.prepProgress+'%</div>'));
+  if(o.production!=="Picked up"&&o.production!=="Completed"){ const ab=el('<button class="btn primary sm" style="margin-top:12px">'+(o.production==="In production"?"Mark ready":o.production==="Ready"?"Mark picked up":"Start production")+'</button>'); ab.onclick=()=>advanceProduction(o.id); pcard.appendChild(ab); }
+  b.appendChild(pcard);
+  // items + yield + packaging
+  const g=el('<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:16px"></div>');
+  const items=el('<div class="card"><div class="between"><h3>Items to produce</h3>'+(o.locked?'<span class="tag" style="color:var(--smoke)">🔒 locked</span>':'')+'</div></div>');
+  (o.items||[]).forEach(it=>items.appendChild(el('<div class="between" style="padding:7px 0;border-top:1px solid var(--line)"><span>'+it.name+'</span><b>'+it.qty+'</b></div>')));
+  items.appendChild(el('<div class="mut2" style="font-size:11px;margin-top:8px">Yield checked raw→cooked→portions · packaging: '+o.packaging+'</div>'));
+  g.appendChild(items);
+  const smoke=el('<div class="card"><h3>Smoke schedule</h3><div class="csub">Back-scheduled from pickup</div></div>');
+  [["2:00 AM","Load brisket — offset #1"],["4:30 AM","Load pork butts"],["1:00 PM","Wrap & rest brisket"],["3:30 PM","Slice & portion"],["4:30 PM","Pack-out & stage"]].forEach(r=>smoke.appendChild(el('<div class="between" style="padding:7px 0;border-top:1px solid var(--line)"><b>'+r[0]+'</b><span class="muted" style="text-align:right">'+r[1]+'</span></div>')));
+  g.appendChild(smoke); b.appendChild(g);
+  // print + manifest
+  const pr=el('<div class="row" style="gap:8px;margin-top:16px"></div>');
+  const p1=el('<button class="btn sm">🖨 Print prep sheet</button>'); p1.onclick=()=>printPrep(o.id);
+  const p2=el('<button class="btn sm">🏷 Print labels</button>'); p2.onclick=()=>printLabels(o.id);
+  pr.appendChild(p1); pr.appendChild(p2); b.appendChild(pr);
+  // amendments
+  const am=el('<div class="card" style="margin-top:16px"><div class="between"><h3>Amendments</h3>'+(!o.locked?'':'<span class="mut2" style="font-size:12px">Menu changes require an amendment while locked</span>')+'</div></div>');
+  if((o.amendments||[]).length) o.amendments.forEach(a=>am.appendChild(el('<div class="amend"><b>v'+a.v+'</b> · '+a.change+'<div class="mut2" style="font-size:12px;margin-top:3px">Reason: '+a.reason+' · Approved by '+a.approver+' · '+a.when+'</div><div class="notif-ok" style="margin-top:4px;color:var(--green);font-size:11px">Kitchen notified ✓ · Customer notified ✓ · Audit recorded ✓</div></div>')));
+  else am.appendChild(el('<div class="mut2" style="font-size:13px">No amendments yet.</div>'));
+  if(ROLE!=="kitchen"){
+    if(AMEND_OPEN){
+      const f=el('<div class="card" style="margin-top:10px;border-color:var(--blue)"><h3>New amendment</h3></div>');
+      f.appendChild(el('<div class="label" style="margin-top:6px">Item</div>'));
+      const sel=el('<select id="amItem" style="width:100%;background:#0f1116;border:1px solid var(--line2);color:var(--ink);border-radius:8px;padding:9px"></select>');
+      (o.items||[]).forEach(it=>sel.appendChild(el('<option>'+it.name+'</option>'))); f.appendChild(sel);
+      f.appendChild(el('<div class="label">Change</div>')); f.appendChild(el('<input id="amChange" placeholder="e.g. +2 lb brisket" style="width:100%;background:#0f1116;border:1px solid var(--line2);color:var(--ink);border-radius:8px;padding:9px">'));
+      f.appendChild(el('<div class="label">Reason</div>')); f.appendChild(el('<input id="amReason" placeholder="e.g. client added headcount" style="width:100%;background:#0f1116;border:1px solid var(--line2);color:var(--ink);border-radius:8px;padding:9px">'));
+      f.appendChild(el('<div class="label">Approver</div>'));
+      const ap=el('<select id="amApprover" style="width:100%;background:#0f1116;border:1px solid var(--line2);color:var(--ink);border-radius:8px;padding:9px"><option>Charles (owner)</option><option>Sarah (CM)</option></select>'); f.appendChild(ap);
+      const row=el('<div class="row" style="gap:8px;margin-top:12px"></div>');
+      const sb=el('<button class="btn primary sm">Submit amendment</button>'); sb.onclick=()=>submitAmend(o.id);
+      const cb=el('<button class="btn sm ghost">Cancel</button>'); cb.onclick=()=>{AMEND_OPEN=false;render();};
+      row.appendChild(sb); row.appendChild(cb); f.appendChild(row); am.appendChild(f);
+    } else { const nb=el('<button class="btn sm" style="margin-top:10px">+ Request amendment</button>'); nb.onclick=()=>{AMEND_OPEN=true;render();}; am.appendChild(nb); }
+  }
+  b.appendChild(am);
+  b.appendChild(el('<div class="card" style="margin-top:16px"><h3>Kitchen notes</h3><div class="muted" style="font-size:13px;margin-top:6px">'+((o.notes&&o.notes[0])?o.notes[0][1]:'No notes.')+'</div></div>'));
+}
+function advanceProduction(id){
+  const o=getOrder(id); const flow=["Scheduled","In production","Ready","Picked up","Completed"]; let i=flow.indexOf(o.production); if(i<0)i=0; if(i>=flow.length-1) return;
+  o.production=flow[i+1];
+  const titles={"In production":"Kitchen Started","Ready":"Ready for pickup","Picked up":"Picked Up","Completed":"Completed"};
+  o.prepProgress = o.production==="In production"?55:100;
+  if(o.production==="Picked up") o.status="Fulfilled"; if(o.production==="Completed") o.status="Completed";
+  o.timeline.push({who:"human",title:titles[o.production],note:"Kitchen · "+o.production,time:"just now",done:true});
+  render();
+}
+function submitAmend(id){
+  const o=getOrder(id);
+  const item=(document.getElementById("amItem")||{}).value||"";
+  const change=(document.getElementById("amChange")||{}).value||"item change";
+  const reason=(document.getElementById("amReason")||{}).value||"not specified";
+  const approver=(document.getElementById("amApprover")||{}).value||"Charles (owner)";
+  o.version++;
+  o.amendments.unshift({v:o.version, change:(item?item+": ":"")+change, reason, approver, when:"just now"});
+  o.timeline.push({who:"human",title:"Amendment v"+o.version,note:change+" · reason: "+reason+" · approved by "+approver,time:"just now",done:true});
+  AMEND_OPEN=false; render();
+}
+function otCustomer(b,o){
+  const g=el('<div class="grid" style="grid-template-columns:1fr 1fr"></div>');
+  const c1=el('<div class="card"><h3>Contact</h3></div>');
+  [["Phone",o.phone],["Email",o.email],["Company",o.company||"—"],["Address",o.address],["Marketing source",o.source],["Referral",o.referral]].forEach(r=>c1.appendChild(el('<div style="padding:6px 0;border-top:1px solid var(--line)"><div class="mut2" style="font-size:11px">'+r[0]+'</div><div style="font-size:13px">'+r[1]+'</div></div>')));
+  g.appendChild(c1);
+  const c2=el('<div class="card"><h3>Value & history</h3></div>');
+  c2.appendChild(el('<div class="between" style="padding:6px 0"><span class="muted">Lifetime value</span><b>'+money(o.ltv)+'</b></div>'));
+  c2.appendChild(el('<div style="padding:6px 0;border-top:1px solid var(--line)"><div class="mut2" style="font-size:11px">Dietary</div><div style="font-size:13px;color:'+((o.dietary&&o.dietary.length)?'var(--red)':'inherit')+'">'+((o.dietary&&o.dietary.length)?o.dietary.join(', '):'None')+'</div></div>'));
+  c2.appendChild(el('<div class="mut2" style="font-size:11px;margin-top:8px">Previous orders</div>'));
+  if((o.prevOrders||[]).length) o.prevOrders.forEach(p=>c2.appendChild(el('<div class="between" style="padding:5px 0;font-size:13px"><span>'+p[0]+'</span><span class="muted">'+p[1]+'</span></div>')));
+  else c2.appendChild(el('<div class="mut2" style="font-size:13px">First order</div>'));
+  g.appendChild(c2); b.appendChild(g);
+  const comm=el('<div class="card" style="margin-top:16px"><h3>Communication timeline</h3></div>');
+  if((o.comms||[]).length){ const tl=el('<div class="ord-tl" style="margin-top:10px"></div>'); o.comms.forEach(c=>tl.appendChild(el('<div class="e"><div class="et">'+c[0]+'</div><div class="en">'+c[1]+'</div><div class="em">'+c[2]+'</div></div>'))); comm.appendChild(tl); }
+  else comm.appendChild(el('<div class="mut2" style="font-size:13px">No communications logged.</div>'));
+  b.appendChild(comm);
+}
+function otOperations(b,o){
+  const g=el('<div class="grid" style="grid-template-columns:1fr 1fr"></div>');
+  const tasks=el('<div class="card"><h3>Tasks</h3><div class="csub">Tap to toggle</div></div>');
+  (o.tasks||[]).forEach((t,i)=>{ const it=el('<div class="between" style="padding:9px 0;border-top:1px solid var(--line);cursor:pointer"><span>'+(t.done?'✓ ':'○ ')+t.t+'</span>'+(t.done?'<span class="tag green">done</span>':'<span class="tag ember">open</span>')+'</div>'); it.onclick=()=>{ o.tasks[i].done=!o.tasks[i].done; render(); }; tasks.appendChild(it); });
+  g.appendChild(tasks);
+  const staff=el('<div class="card"><h3>Assigned staff & approvals</h3></div>');
+  (o.staff||[]).forEach(st=>staff.appendChild(el('<div style="padding:6px 0;border-top:1px solid var(--line);font-size:13px">'+st+'</div>')));
+  staff.appendChild(el('<div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span class="muted">Deposit approval</span><span class="tag green">Approved</span></div>'));
+  staff.appendChild(el('<div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span class="muted">Refunds</span><span class="tag red">Owner only</span></div>'));
+  g.appendChild(staff); b.appendChild(g);
+  const files=el('<div class="card" style="margin-top:16px"><h3>Files & attachments</h3></div>');
+  ['Quote_'+o.id+'.pdf','Confirmation_'+o.id+'.pdf','Venue_floorplan.jpg'].forEach(f=>files.appendChild(el('<div class="between" style="padding:8px 0;border-top:1px solid var(--line);font-size:13px"><span>📎 '+f+'</span><button class="btn sm ghost">Open</button></div>')));
+  b.appendChild(files);
+  const audit=el('<div class="card" style="margin-top:16px"><h3>Audit history</h3><div class="csub">Read-only forever · actor-attributed</div></div>');
+  const tl=el('<div class="ord-tl" style="margin-top:10px"></div>');
+  (o.timeline||[]).filter(e=>e.done).slice().reverse().forEach(e=>tl.appendChild(el('<div class="e"><div class="et">'+e.title+whoChip(e.who)+'</div><div class="en">'+e.note+'</div><div class="em">'+e.time+'</div></div>')));
+  audit.appendChild(tl); b.appendChild(audit);
+}
+function otTimeline(b,o){
+  b.appendChild(el('<div class="csub" style="margin-bottom:6px">Full order lifecycle · every event, actor-attributed</div>'));
+  const tl=el('<div class="ord-tl"></div>');
+  (o.timeline||[]).forEach(e=>tl.appendChild(el('<div class="e '+(e.done?'':'pending')+'"><div class="et">'+e.title+whoChip(e.who)+'</div><div class="en">'+e.note+'</div><div class="em">'+e.time+'</div></div>')));
+  b.appendChild(tl);
+}
+function printPrep(id){
+  const o=getOrder(id); const pa=el('<div id="printArea"></div>');
+  pa.appendChild(el('<h2 style="margin:0 0 6px">Prep Sheet — '+o.id+'</h2>'));
+  pa.appendChild(el('<div>'+o.customer+' · '+o.guests+(o.program==="Catering"?' guests':' order')+' · pickup '+o.pickup+'</div>'));
+  if(o.dietary&&o.dietary.length) pa.appendChild(el('<div style="font-weight:800;margin-top:6px">DIETARY: '+o.dietary.join(', ')+'</div>'));
+  pa.appendChild(el('<h3 style="margin:14px 0 6px">Items</h3>'));
+  (o.items||[]).forEach(it=>pa.appendChild(el('<div style="padding:4px 0;border-bottom:1px solid #ccc">☐ '+it.name+' — '+it.qty+'</div>')));
+  pa.appendChild(el('<div style="margin-top:12px;font-size:12px">Packaging: '+o.packaging+'</div>'));
+  document.body.appendChild(pa); window.print(); setTimeout(()=>pa.remove(),600);
+}
+function printLabels(id){
+  const o=getOrder(id); const pa=el('<div id="printArea" class="lblsheet"></div>');
+  pa.appendChild(el('<h2 style="margin:0 0 10px">Labels — '+o.id+' · '+o.customer+'</h2>'));
+  const grid=el('<div class="lbls"></div>');
+  (o.items||[]).forEach(it=>grid.appendChild(el('<div style="border:1px solid #000;border-radius:6px;padding:10px"><b>'+it.name+'</b><div>'+it.qty+'</div><div style="font-size:11px">'+o.customer+' · '+o.pickup+'</div>'+((o.dietary&&o.dietary.length)?'<div style="font-size:11px;font-weight:800">⚠ '+o.dietary.join(', ')+'</div>':'')+'</div>')));
+  pa.appendChild(grid);
+  document.body.appendChild(pa); window.print(); setTimeout(()=>pa.remove(),600);
 }
 </script>
 </body>
