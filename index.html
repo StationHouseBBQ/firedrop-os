@@ -154,6 +154,15 @@
   .queue{display:flex;align-items:center;gap:14px;padding:15px 18px;border:1px solid var(--line);border-radius:11px;margin-bottom:9px;background:var(--panel);font-size:15px}
   .slot{font-weight:800;font-size:17px;color:var(--ember2);min-width:74px}
 
+  /* ---------- STABILIZATION (toast, demo, transitions) ---------- */
+  .toast{position:fixed;bottom:78px;left:50%;transform:translateX(-50%) translateY(16px);background:#0b0c0e;border:1px solid var(--line2);color:var(--ink);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:600;z-index:120;opacity:0;pointer-events:none;transition:.22s ease;box-shadow:0 12px 40px rgba(0,0,0,.5);max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .demopill{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.12em;color:var(--ember2);background:var(--emberdim);border:1px solid #3a2210;border-radius:20px;padding:4px 11px;margin-right:14px;white-space:nowrap}
+  .demofab{position:fixed;right:18px;bottom:18px;z-index:70;background:var(--ember);color:#211a08;border:none;border-radius:24px;padding:11px 16px;font-weight:800;font-size:13px;cursor:pointer;box-shadow:0 10px 30px rgba(232,89,12,.35)}
+  .demofab:hover{background:var(--ember2)}
+  .overlay,.pal-ov{animation:fadein .14s ease}
+  @keyframes fadein{from{opacity:0}to{opacity:1}}
+  @media(max-width:768px){ .demofab{right:12px;bottom:12px;padding:9px 13px} .demopill{display:none} .toast{bottom:70px} }
   /* ---------- UNIVERSAL OBJECT ENGINE (Sprint 4) ---------- */
   .ubrief{background:linear-gradient(120deg,#101a16,var(--panel) 60%);border:1px solid #1e3a2c;border-radius:10px;padding:14px 16px;margin-bottom:6px}
   .ubrief .uh{font-size:11px;color:var(--green);font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
@@ -482,20 +491,21 @@ function renderNav(){
   items.forEach(([id,label,ic])=>{
     const b = badges[id]? `<span class="badge">${badges[id]}</span>`:"";
     const it=el(`<div class="navitem ${id===SCREEN?'active':''}"><span class="ic">${ic}</span>${label}${b}</div>`);
-    it.onclick=()=>{ OPEN_ORDER=null; OPEN_QUOTE=null; AMEND_OPEN=false; SCREEN=id; renderNav(); render(); };
+    it.onclick=()=>{ OPEN_ORDER=null; OPEN_QUOTE=null; AMEND_OPEN=false; closeDrawer(); if(typeof closePalette==="function"){closePalette();closeActivity();closeDemo&&closeDemo();} SCREEN=id; renderNav(); render(); };
     nav.appendChild(it);
   });
 }
 
 function render(){
   const s=document.getElementById("stage"); window.scrollTo(0,0); s.scrollTop=0;
+  if(typeof scheduleSave==="function") scheduleSave();
   if(OPEN_QUOTE){ renderQuote(s, OPEN_QUOTE); return; }
   if(SCREEN==="orders" && OPEN_ORDER){ renderOrder(s, OPEN_ORDER); return; }
   ({dashboard:scrDashboard,catering:scrCatering,customers:scrCustomers,orders:scrOrders,programs:scrPrograms,kitchen:scrKitchen,marketing:scrMarketing,reports:scrReports,settings:scrSettings}[SCREEN]||scrDashboard)(s);
 }
 function head(title,sub,primaryLabel,primaryFn){
   const h=el(`<div class="page-head"><div><h1>${title}</h1><div class="sub">${sub}</div></div></div>`);
-  if(primaryLabel){ const b=el(`<button class="btn primary primary">${primaryLabel}</button>`); b.onclick=primaryFn||(()=>{}); h.appendChild(b); }
+  if(primaryLabel){ const b=el(`<button class="btn primary primary">${primaryLabel}</button>`); b.onclick=primaryFn||(()=>toast(primaryLabel.replace(/^[+＋]\s*/,"")+" isn’t wired in this prototype build")); h.appendChild(b); }
   return h;
 }
 
@@ -866,6 +876,7 @@ function scrSettings(s){
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Google Ads</span><span class="tag green">Connected</span></div>
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Meta Ads</span><span class="tag green">Connected</span></div></div>`));
   s.appendChild(g);
+  s.appendChild(demoSettingsCard());
 }
 
 /* =========================================================
@@ -1437,8 +1448,9 @@ const OBJ_BADGE={customer:"Customer",lead:"Lead",quote:"Quote",order:"Order",pro
 
 /* ---- dispatcher: same object → same experience, from anywhere ---- */
 function openObject(type,id){
+  closePalette(); closeActivity(); if(typeof closeDemo==="function")closeDemo();
+  if(!objExists(type,id)){ closeDrawer(); toast("That record isn’t available"); try{history.replaceState(null,"",location.pathname+location.search);}catch(e){} return; }
   try{ history.replaceState(null,"","#"+type+"/"+encodeURIComponent(id)); }catch(e){}
-  closePalette(); closeActivity();
   if(type==="order"){ closeDrawer(); return openOrder(id); }
   if(type==="quote"){ closeDrawer(); if(QUOTES[id]){ OPEN_QUOTE=id; QVIEW="compose"; SCREEN="catering"; renderNav(); render(); } return; }
   if(type==="lead") return openLead(id);
@@ -1582,7 +1594,68 @@ document.addEventListener("keydown",e=>{
   const tb=document.querySelector(".topbar .date"); if(tb){ const b=el('<button class="tbtn" title="Activity feed" style="margin-left:auto">⚡ Activity</button>'); b.onclick=openActivity; tb.parentNode.insertBefore(b,tb); tb.style.marginLeft="14px"; }
   const _enter=window.enterApp; window.enterApp=function(){ _enter(); setTimeout(routeHash,60); };
 })();
-function routeHash(){ const h=(location.hash||"").replace(/^#/,""); if(!h)return; const i=h.indexOf("/"); if(i<0)return; const type=h.slice(0,i), id=decodeURIComponent(h.slice(i+1)); if(OBJ_BADGE[type]) openObject(type,id); }
+function routeHash(){ const h=(location.hash||"").replace(/^#/,""); if(!h)return; const i=h.indexOf("/"); if(i<0)return; const type=h.slice(0,i), id=decodeURIComponent(h.slice(i+1)); if(OBJ_BADGE[type]&&objExists(type,id)) openObject(type,id); }
+
+/* =========================================================
+   STABILIZATION (Sprint 5): persistence · guards · demo mode
+   ========================================================= */
+/* ---- existence guard (prevents broken deep links / dead activity items) ---- */
+function objExists(type,id){ switch(type){
+  case "order": return !!(ORD[id]||ORDERS.find(o=>o.id===id));
+  case "quote": return !!QUOTES[id];
+  case "lead": return !!LEADS.find(l=>l.id===id);
+  case "customer": return !!CUSTOMERS.find(c=>c.id===id);
+  case "program": return !!PROGRAMS[id];
+  case "window": return !!WINDOWS[id];
+  case "payment": return !!PAYMENTS.find(p=>p.id===id);
+  case "communication": return !!COMMS.find(m=>m.id===id);
+  case "batch": return !!BATCHES.find(b=>b.id===id);
+  case "campaign": return !!CAMPAIGNS.find(c=>c.id===id);
+  case "review": return !!REVIEWS.find(r=>r.id===id);
+  case "task": return !!TASKS_G.find(t=>t.id===id);
+  default: return false; } }
+
+/* ---- toast (feedback for actions & stubbed buttons) ---- */
+function toast(msg){ let t=document.getElementById("fdtoast"); if(!t){ t=el('<div id="fdtoast" class="toast"></div>'); document.body.appendChild(t); } t.textContent=msg; t.classList.add("show"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("show"),2200); }
+
+/* ---- localStorage persistence ---- */
+const LS_KEY="firedrop_os_v5";
+function snapshot(){ return { v:5, ORDERS, ORD, QUOTES, QNUM, ONUM, ACTIVITY, LEADS, TASKS_G, PAYMENTS, KAmendAcked,
+  CUBAN:{sold:CUBAN.sold,revenue:CUBAN.revenue,orders:CUBAN.orders},
+  BBQ:{sold:BBQ.sold,revenue:BBQ.revenue,orders:BBQ.orders},
+  BATCHES }; }
+function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(snapshot())); }catch(e){} }
+let _saveT; function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveState,300); }
+function loadState(){ try{
+  const raw=localStorage.getItem(LS_KEY); if(!raw) return; const s=JSON.parse(raw); if(!s||s.v!==5) return;
+  const repArr=(a,src)=>{ if(!Array.isArray(src))return; a.length=0; src.forEach(x=>a.push(x)); };
+  const repObj=(o,src)=>{ if(!src)return; Object.keys(o).forEach(k=>delete o[k]); Object.assign(o,src); };
+  repArr(ORDERS,s.ORDERS); repObj(ORD,s.ORD); repObj(QUOTES,s.QUOTES); repArr(ACTIVITY,s.ACTIVITY);
+  repArr(LEADS,s.LEADS); repArr(TASKS_G,s.TASKS_G); repArr(PAYMENTS,s.PAYMENTS); repArr(BATCHES,s.BATCHES);
+  if(typeof s.QNUM==="number")QNUM=s.QNUM; if(typeof s.ONUM==="number")ONUM=s.ONUM; KAmendAcked=!!s.KAmendAcked;
+  if(s.CUBAN){ CUBAN.sold=s.CUBAN.sold; CUBAN.revenue=s.CUBAN.revenue; repArr(CUBAN.orders,s.CUBAN.orders); }
+  if(s.BBQ){ BBQ.sold=s.BBQ.sold; BBQ.revenue=s.BBQ.revenue; repArr(BBQ.orders,s.BBQ.orders); }
+}catch(e){ console.warn("FireDrop: load failed, using defaults",e); } }
+
+/* ---- DEMO MODE: sample workflows ---- */
+function _uid(pfx){ return pfx+"-"+Date.now().toString().slice(-6); }
+function demoReset(){ try{localStorage.removeItem(LS_KEY);}catch(e){} try{history.replaceState(null,"",location.pathname+location.search);}catch(e){} location.reload(); }
+function demoLead(){ const id=_uid("L"); LEADS.unshift({id,name:"Westshore Chamber Mixer",contact:"Pat Nguyen",phone:"813-555-0234",source:"Website",stage:"New",created:"just now",sla:"On track",slaState:"ok",event:"Networking mixer · 90 guests",date:"Sep 12",quote:0,deposit:0,balance:0,owner:"Unassigned",next:"First contact due",timeline:[["New lead","Website catering form","just now"]]}); logActivity("lead",id,"Lead created","Westshore Chamber Mixer · Website"); closeDrawer(); OPEN_ORDER=OPEN_QUOTE=null; SCREEN="catering"; renderNav(); render(); saveState(); toast("Sample catering lead created"); }
+function demoCuban(){ const id=_uid("C"); ORDERS.unshift({id,cust:"Rosa Delgado",type:"Cuban",status:"Paid",amount:28,when:"Thu 12:00",kitchen:"Queued"}); CUBAN.sold+=2; CUBAN.revenue+=28; CUBAN.orders.unshift({name:"Rosa Delgado",qty:2,paid:true,slot:"12:00–12:30"}); logActivity("order",id,"Order created","Rosa Delgado · 2 Cubans"); closeDrawer(); OPEN_ORDER=OPEN_QUOTE=null; SCREEN="programs"; renderNav(); render(); saveState(); toast("Sample Cuban pre-order created"); }
+function _demoBuildQuote(lead,status,pkgIdx,ala){ const num=QNUM++; const key=num+".1"; QUOTES[key]={num,version:1,key,leadId:lead.id,customer:lead.name,contact:lead.contact||"—",phone:lead.phone||"—",email:"—",eventText:lead.event,eventDate:lead.date||"Sep 20",headcount:parseGuests(lead.event),serviceType:"Delivery + Setup",package:PACKAGES[pkgIdx],alacarte:ala||[],deliveryFee:150,setupFee:0,taxRate:0.075,depositPct:0.5,balanceDue:"3 days before event",status,sentAt:"just now",viewedAt:(status==="Viewed"||status==="Accepted")?"just now":null,acceptedAt:status==="Accepted"?"just now":null,expiresAt:"in 14 days",orderId:null}; return key; }
+function demoQuoteViewed(){ const lead=LEADS.find(l=>STAGES.indexOf(l.stage)>=2)||LEADS[0]; const key=_demoBuildQuote(lead,"Viewed",1,[]); const t=quoteTotals(QUOTES[key]); if(STAGES.indexOf(lead.stage)<STAGES.indexOf("Quote Viewed"))lead.stage="Quote Viewed"; lead.quote=t.total; logActivity("quote",key,"Quote viewed",lead.name+" · "+money(t.total)); closeDrawer(); OPEN_QUOTE=key; QVIEW="customer"; SCREEN="catering"; renderNav(); render(); saveState(); toast("Quote sent & viewed — "+quoteLabel(QUOTES[key])); }
+function demoDeposit(){ const lead=LEADS.find(l=>STAGES.indexOf(l.stage)>=2)||LEADS[0]; const key=_demoBuildQuote(lead,"Accepted",2,[{name:"Banana Pudding (tray)",price:38,cost:12,qty:2}]); payDeposit(key); saveState(); toast("Deposit paid — order created"); }
+function demoShortage(){ const b=BATCHES.find(x=>x.id==="BATCH-02"); if(b)b.short=true; logActivity("batch","BATCH-02","Kitchen shortage flagged","Cuban bread short 18"); closeDrawer(); OPEN_ORDER=OPEN_QUOTE=null; SCREEN="kitchen"; renderNav(); render(); saveState(); toast("Kitchen shortage flagged"); }
+function demoPickup(){ const row=ORDERS.find(o=>o.type==="Cuban")||ORDERS[0]; if(!row)return toast("No order to complete"); const o=getOrder(row.id); o.production="Picked up"; o.status="Fulfilled"; o.prepProgress=100; row.kitchen="Done"; row.status="Fulfilled"; (o.timeline=o.timeline||[]).push({who:"human",title:"Picked Up",note:"Pickup completed",time:"just now",done:true}); logActivity("order",row.id,"Pickup completed",o.customer+" · picked up"); openOrder(row.id); saveState(); toast("Pickup completed — "+row.id); }
+const DEMO_ACTIONS=[["↺ Reset demo data",demoReset],["＋ Sample catering lead",demoLead],["＋ Sample Cuban pre-order",demoCuban],["👁 Simulate quote viewed",demoQuoteViewed],["＄ Simulate deposit paid",demoDeposit],["⚠ Simulate kitchen shortage",demoShortage],["✓ Simulate pickup complete",demoPickup]];
+function openDemoTools(){ if(document.getElementById("demoov")) return closeDemo(); const ov=el('<div class="pal-ov" id="demoov"><div class="pal" style="width:440px"><div style="padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700">▷ Demo tools <span class="mut2" style="font-weight:400;font-size:12px">· trigger sample workflows</span></div><div id="demoBody" style="padding:12px"></div></div></div>'); document.getElementById("drawer").appendChild(ov); ov.onclick=e=>{ if(e.target===ov) closeDemo(); }; const b=ov.querySelector("#demoBody"); DEMO_ACTIONS.forEach(a=>{ const btn=el('<button class="btn '+(a[0].indexOf("Reset")>=0?"":"")+'" style="width:100%;margin-bottom:8px;text-align:left">'+a[0]+'</button>'); btn.onclick=()=>{ closeDemo(); a[1](); }; b.appendChild(btn); }); }
+function closeDemo(){ const d=document.getElementById("demoov"); if(d)d.remove(); }
+function demoSettingsCard(){ const c=el('<div class="card" style="margin-top:16px"><h3>Demo data & workflows</h3><div class="csub">Prototype · saved to this browser (localStorage) · no backend</div></div>'); const row=el('<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>'); DEMO_ACTIONS.forEach(a=>{ const btn=el('<button class="btn sm '+(a[0].indexOf("Reset")>=0?"red":"")+'">'+a[0]+'</button>'); btn.onclick=a[1]; row.appendChild(btn); }); c.appendChild(row); c.appendChild(el('<div class="hint" style="margin-top:12px">Changes you make (quotes, orders, payments, amendments, kitchen status, tasks, lead stages) are saved locally and survive refresh. “Reset demo data” restores the original sample set.</div>')); return c; }
+function initDemoUI(){ const tb=document.querySelector(".topbar"); if(tb&&!document.getElementById("demopill")){ const pill=el('<span id="demopill" class="demopill">● DEMO MODE</span>'); tb.insertBefore(pill, tb.firstChild); } if(!document.getElementById("demoFab")){ const fab=el('<button id="demoFab" class="demofab">▷ Demo tools</button>'); fab.onclick=openDemoTools; document.body.appendChild(fab); } }
+
+/* ---- boot: restore state before first render; wire demo UI after login ---- */
+loadState();
+(function(){ const prev=window.enterApp; window.enterApp=function(){ prev(); initDemoUI(); }; })();
 </script>
 </body>
 </html>
