@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FireDrop OS — Station House BBQ</title>
+<style>
+  :root{
+    /* Firehouse Dark — spec §1.1 tokens */
+    --bg:#101214; --bg2:#141619; --panel:#17191C; --panel2:#1E2126; --line:#262a30; --line2:#333842;
+    --ink:#F2F0EB; --mut:#9BA0A8; --mut2:#6E747D;
+    --ember:#E8590C; --ember2:#F5760C; --emberdim:#2a1810;
+    --red:#E5484D; --reddim:#2c1416; --green:#46A758; --greendim:#122419; --blue:#4C8DFF;
+    --amber:#F5A623; --amberdim:#2a2109; --smoke:#6E747D;
+    --radius:8px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:-apple-system,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;height:100vh;overflow:hidden;font-variant-numeric:tabular-nums}
+  button{font-family:inherit;cursor:pointer}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#2a2f3a;border-radius:6px}
+  .hide{display:none!important}
+
+  /* ---------- LOGIN ---------- */
+  #login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(1200px 600px at 50% -10%,#1a1206,#0d0e11 60%)}
+  .login-card{width:380px;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:36px 32px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .mark{display:flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:-.02em}
+  .drop{width:26px;height:26px;border-radius:50% 50% 50% 0;background:linear-gradient(160deg,var(--ember2),var(--ember));transform:rotate(45deg);box-shadow:0 0 18px rgba(255,106,26,.45)}
+  .login-card h1{font-size:22px;margin:22px 0 4px;letter-spacing:-.02em}
+  .login-card p{color:var(--mut);font-size:13px;margin:0 0 22px}
+  label.f{display:block;font-size:12px;color:var(--mut);margin:14px 0 6px;letter-spacing:.02em}
+  input.f{width:100%;background:#0f1116;border:1px solid var(--line2);color:var(--ink);border-radius:9px;padding:11px 12px;font-size:14px}
+  input.f:focus{outline:none;border-color:var(--ember)}
+
+  /* ---------- APP SHELL ---------- */
+  #app{display:flex;height:100vh}
+  nav.side{width:230px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--line);display:flex;flex-direction:column;padding:16px 12px}
+  .side .brand{display:flex;align-items:center;gap:9px;padding:6px 8px 16px;font-weight:800;font-size:17px;letter-spacing:-.02em}
+  .side .brand .drop{width:20px;height:20px}
+  .navitem{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;color:var(--mut);font-size:14px;font-weight:500;margin-bottom:2px;border:1px solid transparent}
+  .navitem:hover{background:var(--panel);color:var(--ink)}
+  .navitem.active{background:var(--panel2);color:var(--ink);border-color:var(--line2)}
+  .navitem.active .ic{color:var(--ember)}
+  .navitem .ic{width:18px;text-align:center;color:var(--mut2);font-size:15px}
+  .navitem .badge{margin-left:auto;background:var(--emberdim);color:var(--ember2);font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px}
+  .side .spacer{flex:1}
+  .rolebox{border-top:1px solid var(--line);padding-top:12px;margin-top:8px}
+  .rolebox .lbl{font-size:11px;color:var(--mut2);padding:0 8px 6px;text-transform:uppercase;letter-spacing:.1em}
+  .roletoggle{display:flex;background:#0f1116;border:1px solid var(--line2);border-radius:9px;padding:3px}
+  .roletoggle button{flex:1;background:transparent;border:none;color:var(--mut);font-size:12px;font-weight:600;padding:7px;border-radius:6px}
+  .roletoggle button.on{background:var(--panel2);color:var(--ink)}
+
+  main{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden}
+  .topbar{height:60px;flex-shrink:0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;padding:0 24px;background:var(--bg)}
+  .search{flex:1;max-width:420px;position:relative}
+  .search input{width:100%;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 12px 9px 34px;font-size:13px}
+  .search input:focus{outline:none;border-color:var(--line2)}
+  .search .si{position:absolute;left:11px;top:8px;color:var(--mut2)}
+  .topbar .date{margin-left:auto;color:var(--mut);font-size:13px}
+  .topbar .who{display:flex;align-items:center;gap:9px;font-size:13px}
+  .avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(160deg,var(--ember2),var(--ember));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#231000}
+
+  .stage{flex:1;overflow:auto;padding:26px 28px}
+  .page-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:22px}
+  .page-head h1{font-size:23px;margin:0 0 3px;letter-spacing:-.02em}
+  .page-head .sub{color:var(--mut);font-size:13px}
+  .page-head .primary{margin-left:auto}
+
+  /* buttons */
+  .btn{border:1px solid var(--line2);background:var(--panel2);color:var(--ink);padding:9px 15px;border-radius:9px;font-size:13px;font-weight:600}
+  .btn:hover{border-color:var(--mut2)}
+  .btn.primary{background:var(--ember);border-color:var(--ember);color:#231000}
+  .btn.primary:hover{background:var(--ember2)}
+  .btn.sm{padding:6px 11px;font-size:12px}
+  .btn.ghost{background:transparent}
+
+  /* cards / grid */
+  .grid{display:grid;gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .card h3{margin:0 0 3px;font-size:14px;letter-spacing:-.01em}
+  .card .csub{color:var(--mut);font-size:12px;margin-bottom:14px}
+  .kpi{font-size:28px;font-weight:800;letter-spacing:-.03em}
+  .kpi.sm{font-size:22px}
+  .muted{color:var(--mut)} .mut2{color:var(--mut2)}
+  .delta{font-size:12px;font-weight:700} .up{color:var(--green)} .down{color:var(--red)}
+  .row{display:flex;align-items:center;gap:10px}
+  .between{display:flex;align-items:center;justify-content:space-between}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;border:1px solid var(--line2);color:var(--mut)}
+  .tag.ember{background:var(--emberdim);color:var(--ember2);border-color:transparent}
+  .tag.amber{background:var(--amberdim);color:var(--amber);border-color:transparent}
+  .tag.green{background:var(--greendim);color:var(--green);border-color:transparent}
+  .tag.red{background:var(--reddim);color:var(--red);border-color:transparent}
+  .tag.blue{background:#12203a;color:var(--blue);border-color:transparent}
+  .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--mut2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:0 12px 10px}
+  td{padding:12px;border-top:1px solid var(--line)}
+  tr.clk:hover td{background:var(--panel2);cursor:pointer}
+  .progress{height:8px;background:#0f1116;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+  .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--ember),var(--ember2))}
+
+  /* briefing */
+  .briefing{background:linear-gradient(120deg,#1a1206,var(--panel) 55%);border:1px solid var(--line2);border-radius:14px;padding:20px 22px;margin-bottom:20px}
+  .briefing .bt{font-size:12px;color:var(--ember2);font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .prio{display:flex;gap:13px;align-items:flex-start;padding:11px 0;border-top:1px solid var(--line)}
+  .prio:first-of-type{border-top:none}
+  .prionum{width:22px;height:22px;flex-shrink:0;border-radius:6px;background:var(--emberdim);color:var(--ember2);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+  .prio .pt{font-size:14px;font-weight:600} .prio .pd{font-size:12.5px;color:var(--mut);margin-top:2px}
+  .prio .pa{margin-left:auto}
+
+  /* pipeline */
+  .board{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px}
+  .col{min-width:230px;flex:1}
+  .colhead{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--mut);margin-bottom:10px;text-transform:uppercase;letter-spacing:.05em}
+  .colhead .ct{margin-left:auto;background:var(--panel2);color:var(--mut);border-radius:20px;padding:0 8px;font-size:11px}
+  .lead{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:9px}
+  .lead:hover{border-color:var(--line2);cursor:pointer}
+  .lead .ln{font-weight:600;font-size:13.5px}
+  .lead .lm{font-size:12px;color:var(--mut);margin:3px 0 8px}
+  .sla{font-size:11px;font-weight:700}
+  .sla.ok{color:var(--mut)} .sla.warn{color:var(--amber)} .sla.late{color:var(--red)}
+
+  /* detail drawer */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;justify-content:flex-end;z-index:50}
+  .drawer{width:560px;max-width:94vw;background:var(--bg2);height:100%;overflow:auto;border-left:1px solid var(--line2);animation:slide .18s ease}
+  @keyframes slide{from{transform:translateX(30px);opacity:.4}to{transform:none;opacity:1}}
+  .drawer .dh{position:sticky;top:0;background:var(--bg2);border-bottom:1px solid var(--line);padding:18px 22px;z-index:2}
+  .drawer .db{padding:20px 22px}
+  .x{float:right;background:transparent;border:none;color:var(--mut);font-size:20px}
+  .field{margin-bottom:12px}.field .fl{font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.05em}.field .fv{font-size:14px;margin-top:2px}
+  .stepper{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 4px}
+  .step{font-size:11px;padding:4px 9px;border-radius:20px;background:#0f1116;border:1px solid var(--line);color:var(--mut2)}
+  .step.done{background:var(--greendim);color:var(--green);border-color:transparent}
+  .step.cur{background:var(--ember);color:#231000;border-color:transparent;font-weight:700}
+  .timeline{border-left:2px solid var(--line2);margin-left:6px;padding-left:16px}
+  .tl{position:relative;padding:0 0 16px}
+  .tl::before{content:"";position:absolute;left:-23px;top:3px;width:10px;height:10px;border-radius:50%;background:var(--ember)}
+  .tl .tt{font-size:13px;font-weight:600}.tl .td{font-size:12px;color:var(--mut)}.tl .tm{font-size:11px;color:var(--mut2);margin-top:1px}
+
+  /* kitchen */
+  .kmode .stage{padding:24px 30px}
+  .kbig{font-size:15px}
+  .prodcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;text-align:center}
+  .prodcard .pn{font-size:13px;color:var(--mut);font-weight:600}
+  .prodcard .pq{font-size:40px;font-weight:800;letter-spacing:-.03em;margin:6px 0}
+  .prodcard .pu{font-size:12px;color:var(--mut2)}
+  .prodcard.short{border-color:var(--red);background:var(--reddim)}
+  .checkitem{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--line);border-radius:11px;margin-bottom:9px;font-size:15px;background:var(--panel)}
+  .checkbox{width:24px;height:24px;border-radius:6px;border:2px solid var(--line2);flex-shrink:0}
+  .checkitem.done{opacity:.5}
+  .checkitem.done .checkbox{background:var(--green);border-color:var(--green)}
+  .queue{display:flex;align-items:center;gap:14px;padding:15px 18px;border:1px solid var(--line);border-radius:11px;margin-bottom:9px;background:var(--panel);font-size:15px}
+  .slot{font-weight:800;font-size:17px;color:var(--ember2);min-width:74px}
+
+  /* ---------- RESPONSIVE (tablet + mobile) ---------- */
+  @media(max-width:1024px){ .grid{grid-template-columns:repeat(2,1fr)!important} }
+  @media(max-width:768px){
+    #app{flex-direction:column}
+    nav.side{width:100%;flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:8px 10px;gap:6px;align-items:center}
+    nav.side .brand{padding:4px 8px 4px 4px;white-space:nowrap;font-size:15px}
+    #nav{display:flex;gap:6px;flex:1}
+    .navitem{margin-bottom:0;white-space:nowrap;padding:8px 11px}
+    .navitem .badge{margin-left:6px}
+    .side .spacer,.rolebox{display:none}
+    .grid{grid-template-columns:1fr!important}
+    .topbar{padding:0 14px;gap:10px} .topbar .date{display:none} .search{max-width:none}
+    .who span{display:none}
+    .stage{padding:16px 14px}
+    .drawer{width:100%}
+    .page-head{flex-wrap:wrap} .page-head .primary{margin-left:0;margin-top:6px}
+    .col{min-width:200px}
+    .prodcard .pq{font-size:34px}
+  }
+  .viewas{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:var(--emberdim);color:var(--ember2);border:1px solid var(--ember);padding:7px 16px;border-radius:20px;font-size:12px;font-weight:700;z-index:60;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  @media print{
+    body *{visibility:hidden}
+    #printArea,#printArea *{visibility:visible}
+    #printArea{position:absolute;left:0;top:0;width:100%;background:#fff;color:#000;padding:20px}
+    #printArea .prodcard{border:1px solid #000;color:#000}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login">
+  <div class="login-card">
+    <div class="mark"><span class="drop"></span> FireDrop&nbsp;OS</div>
+    <h1>Station House BBQ</h1>
+    <p>Restaurant operating system</p>
+    <label class="f">Email</label>
+    <input class="f" id="lg-email" value="owner@stationhousebbq.com">
+    <label class="f">Password</label>
+    <input class="f" type="password" value="••••••••••">
+    <button class="btn primary" style="width:100%;margin-top:22px;padding:12px" onclick="enterApp()">Enter FireDrop OS</button>
+    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--mut2)">Prototype · sample data · no live backend</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hide">
+  <nav class="side">
+    <div class="brand"><span class="drop"></span> FireDrop OS</div>
+    <div id="nav"></div>
+    <div class="spacer"></div>
+    <div class="rolebox">
+      <div class="lbl">View as… (owner preview)</div>
+      <div class="roletoggle">
+        <button id="r-owner" class="on" onclick="setRole('owner')">Owner</button>
+        <button id="r-kitchen" onclick="setRole('kitchen')">Kitchen</button>
+      </div>
+    </div>
+  </nav>
+  <main>
+    <div class="topbar">
+      <div class="search"><span class="si">⌕</span><input placeholder="Search leads, customers, orders…"></div>
+      <div class="date" id="topdate"></div>
+      <div class="who"><div class="avatar" id="avatar">CD</div><span id="whoname">Charles D.</span></div>
+    </div>
+    <div class="stage" id="stage"></div>
+  </main>
+</div>
+
+<div id="drawer"></div>
+
+<script>
+/* =========================================================
+   FireDrop OS — clickable prototype (sample data)
+   ========================================================= */
+const money = n => "$"+Number(n).toLocaleString("en-US",{minimumFractionDigits:0});
+const el = h => { const t=document.createElement("template"); t.innerHTML=h.trim(); return t.content.firstChild; };
+
+let ROLE = "owner";
+let SCREEN = "dashboard";
+
+const NAV = [
+  ["dashboard","Today","⌂"],
+  ["catering","Pipeline","◉"],
+  ["orders","Orders","▤"],
+  ["programs","Programs","◔"],
+  ["kitchen","Kitchen","♨"],
+  ["customers","Customers","☰"],
+  ["marketing","Marketing","▦"],
+  ["reports","Reports","▩"],
+  ["settings","Settings","⚙"],
+];
+const KITCHEN_NAV = ["kitchen","programs"];
+
+/* ---------------- SAMPLE DATA ---------------- */
+const STAGES = ["New","Contacted","Qualified","Quote Sent","Quote Viewed","Deposit Paid","Order Locked","In Production","Fulfilled","Follow-up"];
+
+const LEADS = [
+  {id:"L-1042",name:"Hillsborough Fire Local 2294",contact:"Capt. Ramirez",phone:"813-555-0143",source:"Referral",stage:"Quote Viewed",created:"2h ago",sla:"4h 12m",slaState:"ok",event:"Union banquet · 120 guests",date:"Aug 23",quote:4820,deposit:0,balance:4820,owner:"Charles",next:"Follow up on viewed quote",
+    timeline:[["Quote viewed","Opened quote 2× on mobile","18m ago"],["Quote sent","$4,820 · 120 guests · brisket + pork + 3 sides","3h ago"],["Qualified","Confirmed date & headcount","5h ago"],["Contacted","Called back within SLA","6h ago"],["New lead","Referral from Local 2294","7h ago"]]},
+  {id:"L-1041",name:"Brandon Youth Sports Gala",contact:"Dana Whitfield",phone:"813-555-0198",source:"Google Ads",stage:"Deposit Paid",created:"1d ago",sla:"On track",slaState:"ok",event:"Fundraiser · 200 guests",date:"Sep 6",quote:7150,deposit:2145,balance:5005,owner:"Charles",next:"Lock menu by Aug 20",
+    timeline:[["Deposit paid","$2,145 (30%) · Stripe","1h ago"],["Quote viewed","Opened 3×","20h ago"],["Quote sent","$7,150 · 200 guests","22h ago"],["Qualified","Budget confirmed","1d ago"],["New lead","Google Ads — 'bbq catering tampa'","1d ago"]]},
+  {id:"L-1040",name:"Sunrise Church Picnic",contact:"Pastor Miles",phone:"813-555-0122",source:"Meta Ads",stage:"New",created:"38m ago",sla:"22m",slaState:"warn",event:"Picnic · 80 guests",date:"Aug 16",quote:0,deposit:0,balance:0,owner:"Unassigned",next:"⚠ First contact due in 22m",
+    timeline:[["New lead","Meta lead form — 'Catering inquiry'","38m ago"]]},
+  {id:"L-1039",name:"Tampa PD District 3",contact:"Sgt. Alvarez",phone:"813-555-0177",source:"Referral",stage:"Contacted",created:"5h ago",sla:"LATE 1h 04m",slaState:"late",event:"Appreciation lunch · 60",date:"Aug 14",quote:0,deposit:0,balance:0,owner:"Charles",next:"⚠ Send quote — overdue",
+    timeline:[["Contacted","Left voicemail","5h ago"],["New lead","Referral","6h ago"]]},
+  {id:"L-1038",name:"Riverview Wedding — Carter",contact:"Megan Carter",phone:"813-555-0155",source:"Website",stage:"Order Locked",created:"6d ago",sla:"On track",slaState:"ok",event:"Wedding · 150 guests",date:"Aug 30",quote:9600,deposit:4800,balance:4800,owner:"Charles",next:"Kitchen prep list due Aug 28",
+    timeline:[["Order locked","Menu finalized · 150 guests","2d ago"],["Deposit paid","$4,800 (50%)","4d ago"],["Quote sent","$9,600","5d ago"],["Qualified","Site visit done","5d ago"],["New lead","Website form","6d ago"]]},
+  {id:"L-1037",name:"MacDill AFB Squadron BBQ",contact:"Lt. Brooks",phone:"813-555-0161",source:"Google Ads",stage:"Fulfilled",created:"12d ago",sla:"Done",slaState:"ok",event:"Squadron cookout · 250",date:"Aug 2 (done)",quote:11200,deposit:11200,balance:0,owner:"Charles",next:"Send thank-you + review request",
+    timeline:[["Fulfilled","Delivered on time · 5★ feedback","6d ago"],["In production","Smoked 9 briskets","7d ago"],["Order locked","Paid in full","9d ago"],["New lead","Google Ads","12d ago"]]},
+];
+
+const CUSTOMERS = [
+  {id:"C-301",name:"Megan Carter",type:"Catering",phone:"813-555-0155",email:"megan.c@email.com",since:"2024",spend:9600,orders:1,tags:["Wedding","VIP"],
+    timeline:[["Order locked — Wedding","150 guests · Aug 30","2d ago"],["Deposit $4,800","50% paid","4d ago"],["Inquiry via website","","6d ago"]]},
+  {id:"C-302",name:"Capt. Ramirez",type:"Catering",phone:"813-555-0143",email:"ramirez@local2294.org",since:"2023",spend:13400,orders:3,tags:["Repeat","Firefighter"],
+    timeline:[["Quote viewed","Union banquet $4,820","18m ago"],["Prior event","Local 2294 fish fry · $4,100","Mar 2025"],["Prior event","Retirement dinner · $4,480","Nov 2024"]]},
+  {id:"C-303",name:"Dana Whitfield",type:"Catering",phone:"813-555-0198",email:"dana.w@email.com",since:"2025",spend:7150,orders:1,tags:["Fundraiser"],
+    timeline:[["Deposit $2,145","Youth Sports Gala","1h ago"],["Quote sent $7,150","","22h ago"]]},
+  {id:"C-210",name:"Marcus Bell",type:"Pre-order regular",phone:"813-555-0210",email:"mbell@email.com",since:"2024",spend:1240,orders:31,tags:["Cuban Thursday","Regular"],
+    timeline:[["Cuban pre-order ×2","Picked up 11:30","Last Thu"],["BBQ pre-order","2 lb brisket","2 wks ago"],["Cuban pre-order ×2","","3 wks ago"]]},
+  {id:"C-211",name:"Alicia Gomez",type:"Pre-order regular",phone:"813-555-0211",email:"agomez@email.com",since:"2023",spend:2010,orders:48,tags:["Cuban Thursday","VIP","Regular"],
+    timeline:[["Cuban pre-order ×3","Paid · pickup 12:00","This week"],["Referred a friend","","1 wk ago"],["BBQ pre-order","Rack of ribs","2 wks ago"]]},
+];
+
+const CUBAN = {
+  name:"Thursday Cuban Program", day:"Thursday Aug 14", cap:120, sold:97, revenue:1358, price:14,
+  cutoffTarget: Date.now()+ (5*3600+42*60)*1000,
+  slots:[
+    {t:"11:00–11:30",count:22},{t:"11:30–12:00",count:31},{t:"12:00–12:30",count:26},{t:"12:30–1:00",count:18}
+  ],
+  orders:[
+    {name:"Alicia Gomez",qty:3,paid:true,slot:"12:00–12:30"},
+    {name:"Marcus Bell",qty:2,paid:true,slot:"11:30–12:00"},
+    {name:"Jenna Powell",qty:1,paid:true,slot:"11:00–11:30"},
+    {name:"Devin Clark",qty:2,paid:false,slot:"12:30–1:00"},
+    {name:"Sofia Reyes",qty:4,paid:true,slot:"11:30–12:00"},
+    {name:"Will Turner",qty:1,paid:true,slot:"12:00–12:30"},
+  ]
+};
+const BBQ = {
+  name:"Fri/Sat BBQ Pre-Orders", day:"Fri Aug 15 – Sat Aug 16", cap:80, sold:54, revenue:3186, price:59,
+  cutoffTarget: Date.now()+ (28*3600)*1000,
+  slots:[{t:"Fri 3:00–5:00",count:18},{t:"Fri 5:00–7:00",count:14},{t:"Sat 11:00–1:00",count:22}],
+  orders:[
+    {name:"Ray Mueller",qty:1,paid:true,slot:"Sat 11:00–1:00",item:"Brisket + 2 sides"},
+    {name:"Priya Nair",qty:1,paid:true,slot:"Fri 5:00–7:00",item:"Rib rack + pork"},
+    {name:"Tom Hughes",qty:2,paid:false,slot:"Fri 3:00–5:00",item:"Family pack ×2"},
+  ]
+};
+
+const KITCHEN = {
+  date:"Thursday Aug 14, 2025",
+  production:[
+    {name:"Brisket",qty:64,unit:"lbs needed",short:false},
+    {name:"Pulled Pork",qty:38,unit:"lbs needed",short:false},
+    {name:"Cubans",qty:120,unit:"sandwiches",short:true,note:"Bread order short 18"},
+    {name:"Mac & Cheese",qty:9,unit:"pans",short:false},
+    {name:"Baked Beans",qty:7,unit:"pans",short:false},
+    {name:"Slaw",qty:6,unit:"pans",short:false},
+  ],
+  smoke:[
+    ["2:00 AM","Load 9 briskets — offset #1 & #2","done"],
+    ["4:30 AM","Load pork butts — offset #2","done"],
+    ["9:00 AM","Wrap brisket · temp check 165°F","now"],
+    ["10:30 AM","Press Cubans — first pickup batch","next"],
+    ["11:00 AM","Pickup window opens",""],
+  ],
+  prep:[
+    ["Slice Cuban bread — 120 rolls",true],
+    ["Portion mojo pork for Cubans",true],
+    ["Build 9 pans mac & cheese",false],
+    ["Pull & chop brisket for slicing",false],
+    ["Stage pickup bags by slot",false],
+  ],
+  queue:[
+    {slot:"11:00",name:"Order #C-1191",items:"2 Cubans"},
+    {slot:"11:30",name:"Order #C-1192",items:"2 Cubans"},
+    {slot:"11:30",name:"Order #C-1195",items:"4 Cubans"},
+    {slot:"12:00",name:"Order #C-1197",items:"3 Cubans"},
+    {slot:"12:00",name:"Order #C-1198",items:"1 Cuban"},
+  ]
+};
+
+const ORDERS = [
+  {id:"C-1191",cust:"Jenna Powell",type:"Cuban",status:"Paid",amount:14,when:"Thu 11:00",kitchen:"Queued"},
+  {id:"C-1195",cust:"Sofia Reyes",type:"Cuban",status:"Paid",amount:56,when:"Thu 11:30",kitchen:"Queued"},
+  {id:"C-1198",cust:"Devin Clark",type:"Cuban",status:"Balance due",amount:28,when:"Thu 12:30",kitchen:"Hold"},
+  {id:"B-2043",cust:"Ray Mueller",type:"BBQ",status:"Paid",amount:59,when:"Sat 11:00",kitchen:"Queued"},
+  {id:"B-2044",cust:"Tom Hughes",type:"BBQ",status:"Balance due",amount:118,when:"Fri 3:00",kitchen:"Hold"},
+  {id:"CAT-1038",cust:"Megan Carter",type:"Catering",status:"Deposit paid",amount:9600,when:"Aug 30",kitchen:"Scheduled"},
+  {id:"CAT-1037",cust:"MacDill AFB",type:"Catering",status:"Fulfilled",amount:11200,when:"Aug 2",kitchen:"Done"},
+];
+
+const MARKETING = {
+  channels:[
+    {src:"Google Ads",spend:1200,leads:14,revenue:9350,roas:7.8,note:"'bbq catering tampa'"},
+    {src:"Meta Ads",spend:850,leads:22,revenue:5120,roas:6.0,note:"Cuban Thursday promos"},
+    {src:"Referral",spend:0,leads:9,revenue:17900,roas:"∞",note:"Firefighter network"},
+    {src:"Website / SEO",spend:0,leads:6,revenue:9600,roas:"∞",note:"Organic"},
+  ]
+};
+
+/* ---------------- RENDER ---------------- */
+function enterApp(){ document.getElementById("login").classList.add("hide"); document.getElementById("app").classList.remove("hide"); document.getElementById("topdate").textContent = "Thursday, August 14 · 7:42 AM"; renderNav(); render(); }
+
+function setRole(r){
+  ROLE=r;
+  document.getElementById("r-owner").classList.toggle("on",r==="owner");
+  document.getElementById("r-kitchen").classList.toggle("on",r==="kitchen");
+  document.body.classList.toggle("kmode",r==="kitchen");
+  document.getElementById("avatar").textContent = r==="kitchen"?"KP":"CD";
+  document.getElementById("whoname").textContent = r==="kitchen"?"Kitchen · Pit":"Charles D.";
+  if(r==="kitchen" && !KITCHEN_NAV.includes(SCREEN)) SCREEN="kitchen";
+  let vw=document.getElementById("viewas");
+  if(r==="kitchen"){ if(!vw){ vw=el('<div id="viewas" class="viewas">◉ Viewing as Kitchen — read-only preview · owner · logged</div>'); document.body.appendChild(vw); } }
+  else if(vw){ vw.remove(); }
+  renderNav(); render();
+}
+
+function renderNav(){
+  const nav=document.getElementById("nav"); nav.innerHTML="";
+  const items = ROLE==="kitchen" ? NAV.filter(n=>KITCHEN_NAV.includes(n[0])) : NAV;
+  const badges = {catering: LEADS.filter(l=>l.slaState==="late"||l.slaState==="warn").length, kitchen:1};
+  items.forEach(([id,label,ic])=>{
+    const b = badges[id]? `<span class="badge">${badges[id]}</span>`:"";
+    const it=el(`<div class="navitem ${id===SCREEN?'active':''}"><span class="ic">${ic}</span>${label}${b}</div>`);
+    it.onclick=()=>{ SCREEN=id; renderNav(); render(); };
+    nav.appendChild(it);
+  });
+}
+
+function render(){
+  const s=document.getElementById("stage"); window.scrollTo(0,0); s.scrollTop=0;
+  ({dashboard:scrDashboard,catering:scrCatering,customers:scrCustomers,orders:scrOrders,programs:scrPrograms,kitchen:scrKitchen,marketing:scrMarketing,reports:scrReports,settings:scrSettings}[SCREEN]||scrDashboard)(s);
+}
+function head(title,sub,primaryLabel,primaryFn){
+  const h=el(`<div class="page-head"><div><h1>${title}</h1><div class="sub">${sub}</div></div></div>`);
+  if(primaryLabel){ const b=el(`<button class="btn primary primary">${primaryLabel}</button>`); b.onclick=primaryFn||(()=>{}); h.appendChild(b); }
+  return h;
+}
+
+/* ---------- DASHBOARD ---------- */
+function scrDashboard(s){
+  s.innerHTML="";
+  s.appendChild(head("Good morning, Charles","Thursday, August 14 — here's Station House today.","+ New catering lead",()=>{SCREEN="catering";renderNav();render();}));
+
+  const brief=el(`<div class="briefing">
+    <div class="bt">◆ Morning Briefing · Top 3 priorities</div>
+    <div class="prio"><div class="prionum">1</div><div><div class="pt">Tampa PD quote is overdue by 1h 04m</div><div class="pd">Lead L-1039 · SLA breached · send quote now</div></div><div class="pa"><button class="btn sm primary" onclick="openLead('L-1039')">Open</button></div></div>
+    <div class="prio"><div class="prionum">2</div><div><div class="pt">Kitchen: Cuban bread short by 18</div><div class="pd">Thursday program at 97/120 sold · confirm bread order before 9 AM</div></div><div class="pa"><button class="btn sm" onclick="go('kitchen')">Kitchen</button></div></div>
+    <div class="prio"><div class="prionum">3</div><div><div class="pt">New Meta lead needs first contact in 22m</div><div class="pd">Sunrise Church Picnic · unassigned</div></div><div class="pa"><button class="btn sm" onclick="openLead('L-1040')">Open</button></div></div>
+  </div>`);
+  s.appendChild(brief);
+
+  const g=el(`<div class="grid" style="grid-template-columns:repeat(4,1fr)"></div>`);
+  const kpis=[
+    ["Outstanding balances",money(19630),"5 orders",""],
+    ["Today's pre-order revenue",money(1358),"Cuban Thursday","up +12%"],
+    ["Open catering leads","6","2 need action now","down 2 at risk"],
+    ["Yesterday's sales",money(2740),"38 pre-orders","up +8%"],
+  ];
+  kpis.forEach(([t,v,sub,d])=>{
+    const cls = d.startsWith("down")?"down":"up"; const dtxt=d.replace(/^(up|down) /,"");
+    g.appendChild(el(`<div class="card"><div class="csub">${t}</div><div class="kpi">${v}</div><div class="row" style="margin-top:6px"><span class="muted" style="font-size:12px">${sub}</span>${d?`<span class="delta ${cls}" style="margin-left:auto">${dtxt}</span>`:""}</div></div>`));
+  });
+  s.appendChild(g);
+
+  const g2=el(`<div class="grid" style="grid-template-columns:1.3fr 1fr;margin-top:16px"></div>`);
+  // today
+  const today=el(`<div class="card"><div class="between"><h3>Happening today</h3><button class="btn sm ghost" onclick="go('programs')">Programs</button></div><div class="csub">Thursday Cuban Program</div></div>`);
+  today.appendChild(el(`<div class="between" style="margin:4px 0 8px"><span class="muted" style="font-size:13px">97 of 120 sold · 23 remaining</span><span class="tag ember">Cutoff 1:00 PM</span></div>`));
+  today.appendChild(el(`<div class="progress"><i style="width:${97/120*100}%"></i></div>`));
+  today.appendChild(el(`<div class="row" style="margin-top:14px;gap:18px">
+    <div><div class="mut2" style="font-size:11px">REVENUE</div><div class="kpi sm">${money(1358)}</div></div>
+    <div><div class="mut2" style="font-size:11px">PICKUPS SCHEDULED</div><div class="kpi sm">97</div></div>
+    <div><div class="mut2" style="font-size:11px">KITCHEN</div><div class="kpi sm" style="color:var(--red)">1 short</div></div>
+  </div>`));
+  g2.appendChild(today);
+  // kitchen readiness + marketing mini
+  const right=el(`<div></div>`);
+  const kr=el(`<div class="card"><div class="between"><h3>Kitchen readiness</h3><span class="tag red">Action needed</span></div><div class="csub">Today's production</div>
+     <div class="row between" style="margin:6px 0"><span>Brisket · 64 lbs</span><span class="tag green">On track</span></div>
+     <div class="row between" style="margin:6px 0"><span>Cubans · 120</span><span class="tag red">Bread short 18</span></div>
+     <div class="row between" style="margin:6px 0"><span>Sides · 22 pans</span><span class="tag green">On track</span></div></div>`);
+  right.appendChild(kr);
+  const mk=el(`<div class="card" style="margin-top:16px"><div class="between"><h3>Marketing working</h3><button class="btn sm ghost" onclick="go('marketing')">Details</button></div><div class="csub">Blended ROAS 7.2×</div>
+     <div class="row between" style="margin:6px 0"><span>Google Ads</span><span class="delta up">7.8× ROAS</span></div>
+     <div class="row between" style="margin:6px 0"><span>Meta Ads</span><span class="delta up">6.0× ROAS</span></div>
+     <div class="row between" style="margin:6px 0"><span>Referral</span><span class="muted">$17.9k · 9 leads</span></div></div>`);
+  right.appendChild(mk);
+  g2.appendChild(right);
+  s.appendChild(g2);
+}
+function go(x){ SCREEN=x; renderNav(); render(); }
+
+/* ---------- CATERING PIPELINE ---------- */
+const PIPE_COLS=["New","Contacted","Qualified","Quoted","Won"];
+function stageCol(stage){
+  if(["Quote Sent","Quote Viewed"].includes(stage)) return "Quoted";
+  if(["Deposit Paid","Order Locked","In Production","Fulfilled","Follow-up"].includes(stage)) return "Won";
+  return stage;
+}
+function scrCatering(s){
+  s.innerHTML="";
+  s.appendChild(head("Catering Pipeline","Advance the most at-risk lead · replaces GoHighLevel","⇧ Advance at-risk lead",()=>openLead('L-1039')));
+  const board=el(`<div class="board"></div>`);
+  PIPE_COLS.forEach(colName=>{
+    const inCol=LEADS.filter(l=>stageCol(l.stage)===colName);
+    const val=inCol.reduce((a,l)=>a+(l.quote||0),0);
+    const col=el(`<div class="col"><div class="colhead">${colName}<span class="ct">${inCol.length}</span></div></div>`);
+    inCol.forEach(l=>{
+      const src={"Google Ads":"blue","Meta Ads":"ember","Referral":"green","Website":""}[l.source]||"";
+      const subchip = (l.stage!==colName)?`<span class="tag" style="font-size:10px">${l.stage}</span>`:"";
+      const card=el(`<div class="lead" style="${l.slaState==='late'?'border-left:3px solid var(--red)':l.slaState==='warn'?'border-left:3px solid var(--amber)':''}">
+        <div class="ln">${l.name}</div><div class="lm">${l.event} · ${l.date}</div>
+        <div class="row between" style="margin-bottom:7px"><span class="tag ${src}">${l.source}</span><span class="sla ${l.slaState}">⏱ ${l.sla}</span></div>
+        <div class="row" style="gap:5px;flex-wrap:wrap">${subchip}<span class="mut2" style="font-size:11px">→ ${l.next.replace('⚠ ','')}</span></div></div>`);
+      card.onclick=()=>openLead(l.id);
+      col.appendChild(card);
+    });
+    if(val>0) col.appendChild(el(`<div style="font-size:11px;color:var(--mut2);padding:8px 2px;border-top:1px solid var(--line)">Σ ${money(val)}</div>`));
+    board.appendChild(col);
+  });
+  s.appendChild(board);
+}
+
+function openLead(id){
+  const l=LEADS.find(x=>x.id===id); if(!l) return;
+  const idx=STAGES.indexOf(l.stage);
+  const steps=STAGES.map((st,i)=>`<span class="step ${i<idx?'done':i===idx?'cur':''}">${st}</span>`).join("");
+  const nextStage = idx<STAGES.length-1 ? STAGES[idx+1] : null;
+  const money0 = v=> ROLE==="kitchen"?"—":money(v);
+  const d=el(`<div class="overlay"><div class="drawer">
+    <div class="dh"><button class="x" onclick="closeDrawer()">×</button>
+      <div class="row" style="gap:8px"><span class="tag ember">${l.id}</span><span class="tag ${l.slaState==='late'?'red':l.slaState==='warn'?'ember':'green'}">SLA ${l.sla}</span></div>
+      <h1 style="font-size:20px;margin:10px 0 2px">${l.name}</h1>
+      <div class="sub muted" style="font-size:13px">${l.event} · ${l.date}</div>
+    </div>
+    <div class="db">
+      <div class="stepper">${steps}</div>
+      <div id="leadAction" style="margin:14px 0 20px"></div>
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div class="field"><div class="fl">Contact</div><div class="fv">${l.contact}</div></div>
+        <div class="field"><div class="fl">Phone</div><div class="fv">${l.phone}</div></div>
+        <div class="field"><div class="fl">Lead source</div><div class="fv">${l.source}</div></div>
+        <div class="field"><div class="fl">Owner</div><div class="fv">${l.owner}</div></div>
+        <div class="field"><div class="fl">Quote amount</div><div class="fv">${l.quote?money(l.quote):"—"}</div></div>
+        <div class="field"><div class="fl">Deposit</div><div class="fv">${l.deposit?money(l.deposit):"—"}</div></div>
+        <div class="field"><div class="fl">Balance due</div><div class="fv" style="color:${l.balance? 'var(--ember2)':'var(--green)'}">${l.balance?money(l.balance):"Paid in full"}</div></div>
+        <div class="field"><div class="fl">Next action</div><div class="fv">${l.next}</div></div>
+      </div>
+      <h3 style="margin:18px 0 12px;font-size:14px">Communication timeline</h3>
+      <div class="timeline">${l.timeline.map(t=>`<div class="tl"><div class="tt">${t[0]}</div><div class="td">${t[1]}</div><div class="tm">${t[2]}</div></div>`).join("")}</div>
+    </div>
+  </div></div>`);
+  document.getElementById("drawer").innerHTML=""; document.getElementById("drawer").appendChild(d);
+  d.onclick=e=>{ if(e.target===d) closeDrawer(); };
+  const act=d.querySelector("#leadAction");
+  if(nextStage){
+    const b=el(`<button class="btn primary" style="width:100%;padding:11px">Advance → ${nextStage}</button>`);
+    b.onclick=()=>{ l.stage=nextStage; l.timeline.unshift([nextStage,"Advanced in prototype","just now"]); if(nextStage==="Deposit Paid"&&l.quote){l.deposit=Math.round(l.quote*0.3);l.balance=l.quote-l.deposit;} closeDrawer(); if(SCREEN==="catering")render(); openLead(id); };
+    act.appendChild(b);
+  } else act.appendChild(el(`<div class="tag green">Lifecycle complete</div>`));
+}
+function closeDrawer(){ document.getElementById("drawer").innerHTML=""; }
+
+/* ---------- CUSTOMERS ---------- */
+function scrCustomers(s){
+  s.innerHTML="";
+  s.appendChild(head("Customers","One record, one timeline per customer","+ Add customer"));
+  const t=el(`<div class="card"><table><thead><tr><th>Name</th><th>Type</th><th>Tags</th><th>Orders</th><th>Lifetime</th><th>Contact</th></tr></thead><tbody></tbody></table></div>`);
+  const tb=t.querySelector("tbody");
+  CUSTOMERS.forEach(c=>{
+    const tr=el(`<tr class="clk"><td><b>${c.name}</b></td><td class="muted">${c.type}</td><td>${c.tags.map(x=>`<span class="tag" style="margin-right:4px">${x}</span>`).join("")}</td><td>${c.orders}</td><td>${ROLE==="kitchen"?"—":money(c.spend)}</td><td class="muted">${c.phone}</td></tr>`);
+    tr.onclick=()=>openCustomer(c.id); tb.appendChild(tr);
+  });
+  s.appendChild(t);
+}
+function openCustomer(id){
+  const c=CUSTOMERS.find(x=>x.id===id);
+  const d=el(`<div class="overlay"><div class="drawer">
+    <div class="dh"><button class="x" onclick="closeDrawer()">×</button>
+      <div class="row" style="gap:8px"><span class="tag ember">${c.id}</span>${c.tags.map(x=>`<span class="tag">${x}</span>`).join("")}</div>
+      <h1 style="font-size:20px;margin:10px 0 2px">${c.name}</h1><div class="sub muted" style="font-size:13px">${c.type} · since ${c.since}</div></div>
+    <div class="db">
+      <div class="grid" style="grid-template-columns:1fr 1fr">
+        <div class="field"><div class="fl">Lifetime value</div><div class="fv">${ROLE==="kitchen"?"—":money(c.spend)}</div></div>
+        <div class="field"><div class="fl">Total orders</div><div class="fv">${c.orders}</div></div>
+        <div class="field"><div class="fl">Phone</div><div class="fv">${c.phone}</div></div>
+        <div class="field"><div class="fl">Email</div><div class="fv">${c.email}</div></div>
+      </div>
+      <div class="row" style="gap:8px;margin:6px 0 18px"><button class="btn primary sm">New order</button><button class="btn sm">Message</button><button class="btn sm">New quote</button></div>
+      <h3 style="margin:0 0 12px;font-size:14px">Timeline</h3>
+      <div class="timeline">${c.timeline.map(t=>`<div class="tl"><div class="tt">${t[0]}</div><div class="td">${t[1]}</div><div class="tm">${t[2]}</div></div>`).join("")}</div>
+    </div></div></div>`);
+  document.getElementById("drawer").innerHTML=""; document.getElementById("drawer").appendChild(d);
+  d.onclick=e=>{ if(e.target===d) closeDrawer(); };
+}
+
+/* ---------- ORDERS ---------- */
+function scrOrders(s){
+  s.innerHTML="";
+  s.appendChild(head("Orders","All orders across catering, Cuban & BBQ pre-orders","+ New order"));
+  const t=el(`<div class="card"><table><thead><tr><th>Order</th><th>Customer</th><th>Type</th><th>Status</th>${ROLE==="kitchen"?"":"<th>Amount</th>"}<th>When</th><th>Kitchen</th></tr></thead><tbody></tbody></table></div>`);
+  const tb=t.querySelector("tbody");
+  ORDERS.forEach(o=>{
+    const stcls = o.status==="Paid"||o.status==="Fulfilled"?"green":o.status.includes("Balance")?"red":"ember";
+    tb.appendChild(el(`<tr class="clk"><td><b>${o.id}</b></td><td>${o.cust}</td><td class="muted">${o.type}</td><td><span class="tag ${stcls}">${o.status}</span></td>${ROLE==="kitchen"?"":`<td>${money(o.amount)}</td>`}<td class="muted">${o.when}</td><td><span class="tag">${o.kitchen}</span></td></tr>`));
+  });
+  s.appendChild(t);
+}
+
+/* ---------- PROGRAMS ---------- */
+function scrPrograms(s){
+  s.innerHTML="";
+  s.appendChild(head("Programs","Recurring pre-order programs · capacity, sold, remaining, cutoff, waitlist","+ New program"));
+  const g=el(`<div class="grid" style="grid-template-columns:1fr 1fr"></div>`);
+  [CUBAN,BBQ].forEach(p=>{
+    const rem=p.cap-p.sold; const pct=p.sold/p.cap*100; const soldOut=rem<=0;
+    const c=el(`<div class="card"><div class="between"><h3>${p.name}</h3><span class="tag ${soldOut?'red':'ember'}">${soldOut?'SOLD OUT':'Window open'}</span></div>
+      <div class="csub">${p.day}</div>
+      <div class="row" style="gap:22px;margin:4px 0 12px">
+        <div><div class="mut2" style="font-size:11px">CAP</div><div class="kpi sm">${p.cap}</div></div>
+        <div><div class="mut2" style="font-size:11px">SOLD</div><div class="kpi sm">${p.sold}</div></div>
+        <div><div class="mut2" style="font-size:11px">REMAINING</div><div class="kpi sm" style="color:${rem<10?'var(--ember2)':'inherit'}">${rem}</div></div>
+        ${ROLE==="kitchen"?"":`<div><div class="mut2" style="font-size:11px">REVENUE</div><div class="kpi sm">${money(p.revenue)}</div></div>`}
+      </div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <div class="between" style="margin-top:12px"><span class="muted" style="font-size:12px">Cutoff in <b class="cd" data-t="${p.cutoffTarget}" style="color:var(--ember2)">—</b></span></div>
+    </div>`);
+    const b=el(`<button class="btn sm primary" style="margin-top:14px">Open manifest</button>`); b.onclick=()=>openProgram(p);
+    c.appendChild(b);
+    g.appendChild(c);
+  });
+  s.appendChild(g);
+  startCountdowns();
+}
+function openProgram(p){
+  const rem=p.cap-p.sold;
+  const d=el(`<div class="overlay"><div class="drawer">
+    <div class="dh"><button class="x" onclick="closeDrawer()">×</button>
+      <h1 style="font-size:20px;margin:0 0 2px">${p.name}</h1><div class="sub muted" style="font-size:13px">${p.day} · pickup manifest</div></div>
+    <div class="db">
+      <div class="row" style="gap:20px;margin-bottom:16px">
+        <div><div class="mut2" style="font-size:11px">SOLD</div><div class="kpi sm">${p.sold}/${p.cap}</div></div>
+        <div><div class="mut2" style="font-size:11px">REMAINING</div><div class="kpi sm">${rem}</div></div>
+        <div><div class="mut2" style="font-size:11px">CUTOFF</div><div class="kpi sm cd" data-t="${p.cutoffTarget}">—</div></div>
+      </div>
+      <h3 style="font-size:14px;margin:6px 0 10px">Pickup slots</h3>
+      ${p.slots.map(sl=>`<div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span class="slot">${sl.t}</span><span class="muted">${sl.count} orders</span></div>`).join("")}
+      <h3 style="font-size:14px;margin:18px 0 10px">Manifest</h3>
+      <table><thead><tr><th>Customer</th><th>Qty</th><th>Slot</th><th>Status</th></tr></thead><tbody>
+      ${p.orders.map(o=>`<tr><td><b>${o.name}</b>${o.item?`<div class="mut2" style="font-size:11px">${o.item}</div>`:""}</td><td>${o.qty}</td><td class="muted">${o.slot}</td><td><span class="tag ${o.paid?'green':'red'}">${o.paid?'Paid':'Balance due'}</span></td></tr>`).join("")}
+      </tbody></table>
+      ${rem<=0?`<div class="card" style="margin-top:16px;border-color:var(--red)"><b>Waitlist active</b><div class="muted" style="font-size:12px;margin-top:4px">3 customers waiting — auto-notified if a slot frees.</div></div>`:""}
+    </div></div></div>`);
+  document.getElementById("drawer").innerHTML=""; document.getElementById("drawer").appendChild(d);
+  d.onclick=e=>{ if(e.target===d) closeDrawer(); };
+  startCountdowns();
+}
+function startCountdowns(){
+  document.querySelectorAll(".cd").forEach(x=>{
+    const t=+x.dataset.t;
+    const upd=()=>{ let ms=t-Date.now(); if(ms<0)ms=0; const h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000),sec=Math.floor(ms%60000/1000); x.textContent=`${h}h ${String(m).padStart(2,'0')}m ${String(sec).padStart(2,'0')}s`; };
+    upd(); clearInterval(x._i); x._i=setInterval(upd,1000);
+  });
+}
+
+/* ---------- KITCHEN ---------- */
+let KAmendAcked=false;
+function scrKitchen(s){
+  s.innerHTML="";
+  const pendingAmend = !KAmendAcked;
+  const primaryLabel = pendingAmend ? "⚡ Acknowledge amendment" : "⎙ Print prep sheet";
+  const primaryFn = pendingAmend ? (()=>{ KAmendAcked=true; render(); }) : (()=>window.print());
+  const h=head("Kitchen — Production","Production truth for "+KITCHEN.date+" · no pricing",primaryLabel,primaryFn);
+  s.appendChild(h);
+  const printArea=el(`<div id="printArea"></div>`);
+
+  if(pendingAmend) printArea.appendChild(el(`<div class="card" style="border-color:var(--blue);background:#12203a;margin-bottom:12px"><div class="row" style="gap:10px"><span class="tag blue">⚡ AMENDMENT</span><b>Delgado wedding +2 lb brisket</b><span class="muted" style="margin-left:auto">Since last view · must acknowledge (PIN)</span></div></div>`));
+
+  if(KITCHEN.production.some(p=>p.short)) printArea.appendChild(el(`<div class="card" style="border-color:var(--red);background:var(--reddim);margin-bottom:16px"><div class="row" style="gap:10px"><span class="tag red">⚠ SHORTAGE</span><b>Cuban bread short by 18</b><span class="muted" style="margin-left:auto">Confirm bread order before 9:00 AM</span></div></div>`));
+
+  printArea.appendChild(el(`<h3 style="margin:4px 0 12px;font-size:15px">Required production</h3>`));
+  const g=el(`<div class="grid" style="grid-template-columns:repeat(3,1fr)"></div>`);
+  KITCHEN.production.forEach(p=>{
+    const why = p.name==="Cubans" ? `<div class="mut2" style="font-size:10px;margin-top:4px">= 97 pre-orders + 23 walk-in allocation</div>` : "";
+    g.appendChild(el(`<div class="prodcard ${p.short?'short':''}"><div class="pn">${p.name}</div><div class="pq">${p.qty}</div><div class="pu">${p.unit}${p.short?` · <span style="color:var(--red)">${p.note}</span>`:""}</div>${why}</div>`));
+  });
+  printArea.appendChild(g);
+
+  // action row (spec ⑤⑥⑦)
+  const actions=el(`<div class="row" style="gap:9px;margin:16px 0 4px"></div>`);
+  const adj=el(`<button class="btn sm">Adjust qty (reason + PIN)</button>`);
+  const flag=el(`<button class="btn sm" style="border-color:var(--red);color:var(--red)">⚠ Flag shortage</button>`);
+  const prn=el(`<button class="btn sm" onclick="window.print()">🖨 Print</button>`);
+  flag.onclick=()=>{
+    if(document.getElementById("shortagePanel")) return;
+    const panel=el(`<div id="shortagePanel" class="card" style="margin-top:14px;border-color:var(--red)">
+      <div class="between"><h3 style="color:var(--red)">Shortage — affected orders (paid catering first)</h3><span class="tag red">Owner + CM alerted</span></div>
+      <div class="csub">System prioritized the affected orders automatically</div>
+      <div class="queue"><span class="tag red">1</span><b class="kbig">Delgado Wedding · CAT-1038</b><span class="muted" style="margin-left:auto">Paid catering · protect first</span></div>
+      <div class="queue"><span class="tag amber">2</span><b class="kbig">Sofia Reyes · 4 Cubans</b><span class="muted" style="margin-left:auto">Paid pre-order</span></div>
+      <div class="queue"><span class="tag">3</span><b class="kbig">Walk-in allocation · 23</b><span class="muted" style="margin-left:auto">Reduce first</span></div>
+    </div>`);
+    printArea.appendChild(panel); panel.scrollIntoView({behavior:"smooth"});
+  };
+  actions.appendChild(adj); actions.appendChild(flag); actions.appendChild(prn);
+  printArea.appendChild(actions);
+
+  const g2=el(`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:18px"></div>`);
+  const smoke=el(`<div class="card"><h3 style="font-size:15px">Smoke schedule</h3><div class="csub">Offset pits</div></div>`);
+  KITCHEN.smoke.forEach(([t,task,st])=>{
+    const tag = st==="done"?'<span class="tag green">Done</span>':st==="now"?'<span class="tag ember">NOW</span>':st==="next"?'<span class="tag">Next</span>':"";
+    smoke.appendChild(el(`<div class="between" style="padding:11px 0;border-top:1px solid var(--line)"><div><b class="kbig">${t}</b><div class="muted" style="font-size:13px">${task}</div></div>${tag}</div>`));
+  });
+  g2.appendChild(smoke);
+  const prep=el(`<div class="card"><h3 style="font-size:15px">Prep list</h3><div class="csub">Tap to check off</div></div>`);
+  KITCHEN.prep.forEach((p,i)=>{
+    const it=el(`<div class="checkitem ${p[1]?'done':''}"><div class="checkbox"></div>${p[0]}</div>`);
+    it.onclick=()=>{ it.classList.toggle("done"); };
+    prep.appendChild(it);
+  });
+  g2.appendChild(prep);
+  printArea.appendChild(g2);
+
+  printArea.appendChild(el(`<h3 style="margin:20px 0 12px;font-size:15px">Pickup queue</h3>`));
+  KITCHEN.queue.forEach(q=>printArea.appendChild(el(`<div class="queue"><span class="slot">${q.slot}</span><b class="kbig">${q.name}</b><span class="muted" style="margin-left:auto">${q.items}</span></div>`)));
+  s.appendChild(printArea);
+}
+
+/* ---------- MARKETING ---------- */
+function scrMarketing(s){
+  s.innerHTML="";
+  s.appendChild(head("Marketing & Attribution","Source attribution · Google / Meta ROI · FireDrop owns revenue truth, not impressions","Enter this week's spend"));
+  s.appendChild(el(`<div class="card" style="border-color:var(--amber);background:var(--amberdim);margin-bottom:16px;padding:12px 16px"><div class="row" style="gap:10px"><span class="tag amber">Feed the report</span><span style="font-size:13px">This week's spend not entered yet — figures below marked <b>*computed from manual entry</b> stay honest only when fed <span class="mut2">(R-22)</span>.</span></div></div>`));
+  const g=el(`<div class="grid" style="grid-template-columns:repeat(4,1fr)"></div>`);
+  const tot=MARKETING.channels.reduce((a,c)=>({spend:a.spend+c.spend,leads:a.leads+c.leads,rev:a.rev+c.revenue}),{spend:0,leads:0,rev:0});
+  [["Total ad spend*",money(tot.spend)],["Attributed revenue",money(tot.rev)],["Leads",tot.leads],["Blended ROAS","7.2×"]].forEach(([t,v])=>g.appendChild(el(`<div class="card"><div class="csub">${t}</div><div class="kpi">${v}</div></div>`)));
+  s.appendChild(g);
+  const t=el(`<div class="card" style="margin-top:16px"><h3>Channel performance</h3><div class="csub">Last 30 days · *spend computed from manual entry</div><table><thead><tr><th>Source</th><th>Spend*</th><th>Leads</th><th>Won</th><th>Revenue</th><th>ROAS</th></tr></thead><tbody></tbody></table></div>`);
+  const tb=t.querySelector("tbody");
+  MARKETING.channels.forEach(c=>{ const roasNum=parseFloat(c.roas); const cls=(isNaN(roasNum)||roasNum>=2)?"up":"down"; tb.appendChild(el(`<tr><td><b>${c.src}</b><div class="mut2" style="font-size:11px">${c.note}</div></td><td>${money(c.spend)}</td><td>${c.leads}</td><td>${Math.max(1,Math.round(c.leads*0.3))}</td><td>${money(c.revenue)}</td><td><span class="delta ${cls}">${c.roas}×</span></td></tr>`)); });
+  s.appendChild(t);
+
+  // by-stream split (the screen's reason to exist)
+  const split=el(`<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:16px"></div>`);
+  split.appendChild(el(`<div class="card"><h3>By stream — the real insight</h3><div class="csub">Blended ROAS lies; split it by what you sell</div>
+     <div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span>Catering · Meta Ads</span><span class="delta up">6.0×</span></div>
+     <div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span>Catering · Google Ads</span><span class="delta down">0.8×</span></div>
+     <div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span>Pre-orders · Google Ads</span><span class="delta up">2.9×</span></div>
+     <div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span>Pre-orders · Meta Ads</span><span class="muted">1.7×</span></div></div>`));
+  const unattr=el(`<div class="card"><h3>Unattributed revenue</h3><div class="csub">Honesty budget — never footnoted away</div>
+     <div class="kpi" style="color:var(--amber)">31%</div><div class="muted" style="font-size:12px;margin:6px 0 12px">of revenue has no known source <span class="mut2">(measured)</span></div>
+     <div class="card" style="background:#12203a;border-color:var(--blue)"><div class="row" style="gap:8px"><span class="tag blue">◆ Recommendation · L2</span></div>
+        <div style="font-size:13px;margin:8px 0 10px">"For catering, Meta outperforms Google ~7×. Review reallocation." <span class="mut2">— review, not an instruction. FireDrop never spends.</span></div>
+        <div class="row" style="gap:8px"><button class="btn sm">Noted</button><button class="btn sm ghost">Dismiss</button></div></div></div>`);
+  split.appendChild(unattr);
+  s.appendChild(split);
+}
+
+/* ---------- REPORTS ---------- */
+function scrReports(s){
+  s.innerHTML="";
+  s.appendChild(head("Reports","Revenue, channels & operations","Export"));
+  const g=el(`<div class="grid" style="grid-template-columns:repeat(3,1fr)"></div>`);
+  [["This week revenue",money(11840),"up +9% vs last wk"],["Catering pipeline value",money(31570),"6 open leads"],["Pre-order revenue MTD",money(9420),"up +14%"]].forEach(([t,v,d])=>g.appendChild(el(`<div class="card"><div class="csub">${t}</div><div class="kpi">${v}</div><div class="delta up" style="margin-top:6px">${d}</div></div>`)));
+  s.appendChild(g);
+  const rows=[["Catering",23100,54],["Cuban Thursday",4820,22],["Fri/Sat BBQ",6390,18],["Walk-in / other",2140,6]];
+  const t=el(`<div class="card" style="margin-top:16px"><h3>Revenue by channel</h3><div class="csub">Month to date</div><table><thead><tr><th>Channel</th><th>Revenue</th><th>Share</th><th>Orders</th></tr></thead><tbody></tbody></table></div>`);
+  const total=rows.reduce((a,r)=>a+r[1],0); const tb=t.querySelector("tbody");
+  rows.forEach(r=>tb.appendChild(el(`<tr><td><b>${r[0]}</b></td><td>${money(r[1])}</td><td style="width:220px"><div class="progress"><i style="width:${r[1]/total*100}%"></i></div></td><td>${r[2]}</td></tr>`)));
+  s.appendChild(t);
+}
+
+/* ---------- SETTINGS ---------- */
+function scrSettings(s){
+  s.innerHTML="";
+  s.appendChild(head("Settings","Roles, programs & FireDrop configuration","Save changes"));
+  const g=el(`<div class="grid" style="grid-template-columns:1fr 1fr"></div>`);
+  g.appendChild(el(`<div class="card"><h3>Roles & access</h3><div class="csub">Who sees what</div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Owner · Charles D.</span><span class="tag ember">Full access</span></div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Kitchen · Pit staff</span><span class="tag">No pricing · production only</span></div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Front counter</span><span class="tag">Orders + pickups</span></div></div>`));
+  g.appendChild(el(`<div class="card"><h3>Programs</h3><div class="csub">Recurring pre-orders</div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Thursday Cuban · cap 120</span><span class="tag green">Active</span></div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Fri/Sat BBQ · cap 80</span><span class="tag green">Active</span></div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Auto-waitlist when sold out</span><span class="tag ember">On</span></div></div>`));
+  g.appendChild(el(`<div class="card"><h3>Automations & AI</h3><div class="csub">Recommend & draft only — never irreversible</div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Draft quote follow-ups</span><span class="tag ember">On · needs approval</span></div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>SLA breach alerts</span><span class="tag ember">On</span></div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Auto-send payments</span><span class="tag red">Blocked — owner only</span></div></div>`));
+  g.appendChild(el(`<div class="card"><h3>Integrations</h3><div class="csub">Connected services</div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Stripe payments</span><span class="tag green">Connected</span></div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Google Ads</span><span class="tag green">Connected</span></div>
+     <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Meta Ads</span><span class="tag green">Connected</span></div></div>`));
+  s.appendChild(g);
+}
+</script>
+</body>
+</html>
