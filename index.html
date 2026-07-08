@@ -218,6 +218,16 @@
   .simbar{background:var(--panel2);border:1px dashed var(--line2);border-radius:10px;padding:10px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .simbar .st{font-size:11px;color:var(--mut2);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
   @media(max-width:768px){ .qgrid{grid-template-columns:1fr} .qsum{position:static} .cust-quote{padding:24px 20px} }
+  /* ---------- PREP ENGINE (Sprint 6) ---------- */
+  .prepgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px 22px}
+  .prow{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--line)}
+  .prow .pn2{flex:1;font-size:13px}
+  .prow .pinp{width:84px;text-align:right;padding:7px 9px}
+  .prow .pu2{color:var(--mut2);font-size:12px;min-width:46px}
+  @media(max-width:768px){ .prepgrid{grid-template-columns:1fr} }
+  .pu-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+  .pu-main{flex:1;min-width:150px}
+  @media(max-width:768px){ .pu-row .btn{flex:1} }
   /* ---------- RESPONSIVE (tablet + mobile) ---------- */
   @media(max-width:1024px){ .grid{grid-template-columns:repeat(2,1fr)!important} }
   @media(max-width:768px){
@@ -348,9 +358,12 @@ const QUOTES = {};
 const NAV = [
   ["dashboard","Today","⌂"],
   ["catering","Pipeline","◉"],
+  ["calendar","Calendar","◗"],
   ["orders","Orders","▤"],
   ["programs","Programs","◔"],
   ["kitchen","Kitchen","♨"],
+  ["pickup","Pickup","✔"],
+  ["packing","Packing","◱"],
   ["customers","Customers","☰"],
   ["marketing","Marketing","▦"],
   ["reports","Reports","▩"],
@@ -501,7 +514,7 @@ function render(){
   if(typeof scheduleSave==="function") scheduleSave();
   if(OPEN_QUOTE){ renderQuote(s, OPEN_QUOTE); return; }
   if(SCREEN==="orders" && OPEN_ORDER){ renderOrder(s, OPEN_ORDER); return; }
-  ({dashboard:scrDashboard,catering:scrCatering,customers:scrCustomers,orders:scrOrders,programs:scrPrograms,kitchen:scrKitchen,marketing:scrMarketing,reports:scrReports,settings:scrSettings}[SCREEN]||scrDashboard)(s);
+  ({dashboard:scrDashboard,catering:scrCatering,calendar:scrCalendar,customers:scrCustomers,orders:scrOrders,programs:scrPrograms,kitchen:scrKitchen,pickup:scrPickup,packing:scrPacking,marketing:scrMarketing,reports:scrReports,settings:scrSettings}[SCREEN]||scrDashboard)(s);
 }
 function head(title,sub,primaryLabel,primaryFn){
   const h=el(`<div class="page-head"><div><h1>${title}</h1><div class="sub">${sub}</div></div></div>`);
@@ -749,6 +762,57 @@ function startCountdowns(){
 
 /* ---------- KITCHEN ---------- */
 let KAmendAcked=false;
+let KTAB="today";   // Sprint 6: Prep Engine sub-tab
+let KNOTES="";      // Sprint 6: shared kitchen notes (persisted)
+let PICKUP_DAY="All", PICKUP_Q="";  // Sprint 6: front-counter pickup filters
+// Real Station House commissary catalog (single source; unit + par target)
+const CATALOG=[
+  {cat:"🥩 Meats", items:[
+    {id:"brisket",name:"Cooked Brisket",unit:"lbs",par:60},
+    {id:"pork",name:"Pulled Pork",unit:"lbs",par:40},
+    {id:"ribs",name:"Smoked Ribs",unit:"racks",par:20},
+    {id:"chicken",name:"Chicken Quarters",unit:"pcs",par:40},
+    {id:"burntends",name:"Burnt Ends",unit:"lbs",par:15},
+    {id:"beefribs",name:"Beef Ribs",unit:"pcs",par:12}
+  ]},
+  {cat:"🥗 Sides", items:[
+    {id:"mac",name:"Mac & Cheese",unit:"pans",par:9},
+    {id:"beans",name:"Baked Beans",unit:"gal",par:6},
+    {id:"slaw",name:"Cole Slaw",unit:"bags",par:8},
+    {id:"collards",name:"Collard Greens",unit:"pans",par:5},
+    {id:"greenbeans",name:"Green Beans",unit:"pans",par:5},
+    {id:"potatosalad",name:"Potato Salad",unit:"pans",par:5},
+    {id:"broccolisalad",name:"Broccoli Salad",unit:"pans",par:4},
+    {id:"streetcorn",name:"Street Corn",unit:"pans",par:5},
+    {id:"cornbread",name:"Cornbread",unit:"pans",par:6}
+  ]},
+  {cat:"🫙 Sauces & Sub-Sauces", items:[
+    {id:"bbq",name:"BBQ Sauce (Eddie's)",unit:"gal",par:8},
+    {id:"cheese",name:"Cheese Sauce",unit:"gal",par:4},
+    {id:"chickenmop",name:"Chicken Mop",unit:"gal",par:3},
+    {id:"ribmop",name:"Rib Mop",unit:"gal",par:3},
+    {id:"slawdressing",name:"Slaw Dressing",unit:"gal",par:3},
+    {id:"guava",name:"Guava Sauce",unit:"gal",par:2},
+    {id:"station40",name:"Station 40 Sauce",unit:"gal",par:3},
+    {id:"carolina",name:"Carolina Sauce",unit:"gal",par:3},
+    {id:"potatosaladdressing",name:"Potato Salad Dressing",unit:"gal",par:2},
+    {id:"streetcornsauce",name:"Street Corn Sauce",unit:"gal",par:2},
+    {id:"jerkmustardmayo",name:"Jerk Mustard Mayo",unit:"gal",par:2}
+  ]},
+  {cat:"🍰 Desserts", items:[
+    {id:"peachcobbler",name:"Peach Cobbler",unit:"pans",par:4},
+    {id:"bananapudding",name:"Banana Pudding",unit:"pans",par:4},
+    {id:"cookies",name:"Cookies",unit:"doz",par:6}
+  ]},
+  {cat:"📦 Misc", items:[
+    {id:"pickledonions",name:"Pickled Onions",unit:"gal",par:2},
+    {id:"breadcrumb",name:"Breadcrumb Topping",unit:"gal",par:1},
+    {id:"pickles",name:"Pickles",unit:"gal",par:2},
+    {id:"cuban",name:"Cuban Sandwich",unit:"each",par:0},
+    {id:"texaswhitebread",name:"Texas White Bread",unit:"loaves",par:10}
+  ]}
+];
+const PREP={ prep:{}, raw:{} };   // itemId -> value; persisted via db
 function scrKitchen(s){
   s.innerHTML="";
   const pendingAmend = !KAmendAcked;
@@ -756,6 +820,12 @@ function scrKitchen(s){
   const primaryFn = pendingAmend ? (()=>{ KAmendAcked=true; render(); }) : (()=>window.print());
   const h=head("Kitchen — Production","Production truth for "+KITCHEN.date+" · no pricing",primaryLabel,primaryFn);
   s.appendChild(h);
+  // Sprint 6: Prep Engine sub-tabs (Today view unchanged; new demand-driven tabs added)
+  const ktabs=[["today","Today"],["prep","Prep Count"],["raw","Raw Count"],["preplist","Prep List"],["orderguide","Order Guide"],["weekly","Weekly Board"],["notes","Notes"]];
+  const ktb=el('<div class="otabs"></div>');
+  ktabs.forEach(t=>{ const e2=el('<div class="otab '+(KTAB===t[0]?'on':'')+'">'+t[1]+'</div>'); e2.onclick=()=>{KTAB=t[0];render();}; ktb.appendChild(e2); });
+  s.appendChild(ktb);
+  if(KTAB!=="today"){ ({prep:ktPrepCount,raw:ktRawCount,preplist:ktPrepList,orderguide:ktOrderGuide,weekly:ktWeekly,notes:ktNotes}[KTAB]||ktPrepCount)(s); return; }
   const printArea=el(`<div id="printArea"></div>`);
 
   if(pendingAmend) printArea.appendChild(el(`<div class="card" style="border-color:var(--blue);background:#12203a;margin-bottom:12px"><div class="row" style="gap:10px"><span class="tag blue">⚡ AMENDMENT</span><b>Delgado wedding +2 lb brisket</b><span class="muted" style="margin-left:auto">Since last view · must acknowledge (PIN)</span></div></div>`));
@@ -810,6 +880,198 @@ function scrKitchen(s){
   s.appendChild(printArea);
 }
 
+/* ---------- KITCHEN · PREP ENGINE (Sprint 6) ---------- */
+function showPrepSaved(){ const e=document.getElementById("prepSaved"); if(!e)return; e.textContent="Saving…"; e.className="tag amber"; clearTimeout(window._psT); window._psT=setTimeout(()=>{ e.textContent="All changes saved ✓"; e.className="tag green"; },500); }
+function prepSavedBar(txt){ return '<div class="between" style="margin:2px 0 12px"><div class="csub" style="margin:0">'+txt+' — '+KITCHEN.date+'</div><span id="prepSaved" class="tag green">Auto-saves as you type ✓</span></div>'; }
+function prepGrid(kind){
+  const wrap=el('<div></div>');
+  db.getCatalog().forEach(group=>{
+    const card=el('<div class="card" style="margin-bottom:14px"><h3 style="font-size:14px">'+group.cat+'</h3></div>');
+    const grid=el('<div class="prepgrid"></div>');
+    group.items.forEach(it=>{
+      const cur=db.getPrep()[kind][it.id];
+      const row=el('<div class="prow"><span class="pn2">'+it.name+'</span></div>');
+      const inp=el('<input class="qin pinp" type="number" inputmode="decimal" placeholder="0" value="'+(cur!=null?cur:"")+'">');
+      inp.oninput=(e)=>{ db.setPrepCount(kind,it.id,e.target.value); showPrepSaved(); };
+      row.appendChild(inp); row.appendChild(el('<span class="pu2">'+it.unit+'</span>'));
+      grid.appendChild(row);
+    });
+    card.appendChild(grid); wrap.appendChild(card);
+  });
+  return wrap;
+}
+function ktPrepCount(s){ s.appendChild(el(prepSavedBar("What's made & on hand"))); s.appendChild(prepGrid("prep")); }
+function ktRawCount(s){ s.appendChild(el(prepSavedBar("Raw ingredient counts on hand"))); s.appendChild(prepGrid("raw")); }
+function prepDemand(){ const d={}; d.cuban=(CUBAN.sold||0); const b=(BBQ.sold||0); d.brisket=Math.round(b*0.6); d.pork=Math.round(b*0.4); d.ribs=Math.round(b*0.2); return d; }
+function ktPrepList(s){
+  s.appendChild(el('<div class="csub" style="margin-bottom:10px">Demand-driven — suggested from today\'s programs (Cuban '+(CUBAN.sold||0)+', BBQ '+(BBQ.sold||0)+') and par levels. On-hand comes from Prep Count.</div>'));
+  const dem=prepDemand();
+  db.getCatalog().forEach(group=>{
+    const card=el('<div class="card" style="margin-bottom:14px"><h3 style="font-size:14px">'+group.cat+'</h3></div>');
+    const t=el('<table><thead><tr><th>Item</th><th>Suggested</th><th>On hand</th><th>To make</th></tr></thead><tbody></tbody></table>');
+    const tb=t.querySelector("tbody");
+    group.items.forEach(it=>{ const suggested=(dem[it.id]!=null?dem[it.id]:it.par); const have=+(db.getPrep().prep[it.id]||0); const toMake=Math.max(0,suggested-have);
+      tb.appendChild(el('<tr><td>'+it.name+'</td><td class="muted">'+suggested+' '+it.unit+'</td><td>'+(have||0)+'</td><td>'+(toMake>0?'<span class="tag amber">'+toMake+' '+it.unit+'</span>':'<span class="tag green">ready</span>')+'</td></tr>'));
+    });
+    card.appendChild(t); s.appendChild(card);
+  });
+  s.appendChild(el('<button class="btn sm" style="margin-top:2px" onclick="window.print()">🖨 Print prep list</button>'));
+}
+function ktOrderGuide(s){
+  s.appendChild(el('<div class="csub" style="margin-bottom:10px">What to buy — par target minus raw on-hand (from Raw Count).</div>'));
+  db.getCatalog().forEach(group=>{
+    const card=el('<div class="card" style="margin-bottom:14px"><h3 style="font-size:14px">'+group.cat+'</h3></div>');
+    const t=el('<table><thead><tr><th>Item</th><th>Par</th><th>Raw on hand</th><th>To order</th></tr></thead><tbody></tbody></table>');
+    const tb=t.querySelector("tbody");
+    group.items.forEach(it=>{ const raw=+(db.getPrep().raw[it.id]||0); const toOrder=Math.max(0,it.par-raw);
+      tb.appendChild(el('<tr><td>'+it.name+'</td><td class="muted">'+it.par+' '+it.unit+'</td><td>'+(raw||0)+'</td><td>'+(toOrder>0?'<span class="tag ember">'+toOrder+' '+it.unit+'</span>':'<span class="tag green">stocked</span>')+'</td></tr>'));
+    });
+    card.appendChild(t); s.appendChild(card);
+  });
+  s.appendChild(el('<button class="btn sm" style="margin-top:2px" onclick="window.print()">🖨 Print order guide</button>'));
+}
+
+/* ---------- KITCHEN · WEEKLY BOARD + NOTES (Sprint 6) ---------- */
+function ktWeekly(s){
+  s.appendChild(el('<div class="csub" style="margin-bottom:10px">This week\'s production load by day — driven by pre-orders (Cuban '+(CUBAN.sold||0)+', BBQ '+(BBQ.sold||0)+') and pars.</div>'));
+  const dem=prepDemand();
+  const cols=[
+    {d:"Thu · Cuban", when:fireDates().cuban.label, rows:[["Cuban Sandwiches",(CUBAN.sold||0)+" each"],["Mojo Pork","from pork batch"],["Texas White Bread",Math.ceil((CUBAN.sold||0)/10)+" loaves"]]},
+    {d:"Fri · BBQ", when:fireDates().bbqFri.label, rows:[["Brisket",dem.brisket+" lb"],["Pulled Pork",dem.pork+" lb"],["Ribs",dem.ribs+" racks"]]},
+    {d:"Sat · BBQ", when:fireDates().bbqSat.label, rows:[["Brisket","carryover + fresh"],["Sides","pans per orders"],["Sauces","top off pars"]]}
+  ];
+  const board=el('<div class="grid" style="grid-template-columns:repeat(3,1fr)"></div>');
+  cols.forEach(c=>{ const card=el('<div class="card"><h3 style="font-size:14px">'+c.d+'</h3><div class="csub">'+c.when+'</div></div>'); c.rows.forEach(r=>card.appendChild(el('<div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span style="font-size:13px">'+r[0]+'</span><b>'+r[1]+'</b></div>'))); board.appendChild(card); });
+  s.appendChild(board);
+  s.appendChild(el('<button class="btn sm" style="margin-top:12px" onclick="window.print()">🖨 Print weekly board</button>'));
+}
+function ktNotes(s){
+  s.appendChild(el('<div class="between" style="margin:2px 0 10px"><div class="csub" style="margin:0">Kitchen notes — shared, auto-saved</div><span id="prepSaved" class="tag green">Auto-saves as you type ✓</span></div>'));
+  const ta=el('<textarea class="qin" style="width:100%;min-height:220px;resize:vertical" placeholder="Shift notes, 86&#39;d items, substitutions, pit temps…"></textarea>');
+  ta.value=KNOTES||"";
+  ta.oninput=()=>{ KNOTES=ta.value; scheduleSave(); showPrepSaved(); };
+  s.appendChild(ta);
+}
+
+/* ---------- FRONT COUNTER · PICKUP (Sprint 6) ---------- */
+// Auto-advancing Fire Drop dates (prototype-safe: computed from real "today", persisted nowhere)
+function _nextDow(dow){ const d=new Date(); const diff=(dow-d.getDay()+7)%7; d.setDate(d.getDate()+diff); d.setHours(0,0,0,0); return d; }
+function _fmtDay(d){ return d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}); }
+function fireDates(){
+  const thu=_nextDow(4), fri=_nextDow(5), sat=_nextDow(6);
+  const cutoff=(base,days,hh)=>{ const c=new Date(base); c.setDate(c.getDate()-days); c.setHours(hh,0,0,0); return c; };
+  const now=Date.now();
+  const st=(c)=> now>c.getTime()?"closed":"open";
+  const cCut=cutoff(thu,1,12), bCut=cutoff(fri,1,18);
+  return {
+    cuban:{date:thu,label:_fmtDay(thu),cutoff:"Wed 12:00 PM",status:st(cCut)},
+    bbqFri:{date:fri,label:_fmtDay(fri),cutoff:"Thu 6:00 PM",status:st(bCut)},
+    bbqSat:{date:sat,label:_fmtDay(sat),cutoff:"Thu 6:00 PM",status:st(bCut)}
+  };
+}
+function scrPickup(s){
+  s.innerHTML="";
+  const all=db.getPreorders(); const done=all.filter(e=>e.o.pickedUp).length;
+  s.appendChild(head("Pickup — Front Counter","Pre-order pickups · "+done+"/"+all.length+" picked up · tap to mark prepared / picked up","🖨 Print",()=>window.print()));
+  const ctrl=el('<div class="row" style="gap:8px;margin-bottom:14px;flex-wrap:wrap"></div>');
+  const search=el('<input class="qin" placeholder="Search customer…" style="flex:1;min-width:180px">');
+  search.value=PICKUP_Q; search.oninput=()=>{ PICKUP_Q=search.value; fillPickup(); };
+  ctrl.appendChild(search);
+  ["All","Thursday","Friday","Saturday"].forEach(d=>{ const b=el('<button class="btn sm '+(PICKUP_DAY===d?'primary':'ghost')+'">'+d+'</button>'); b.onclick=()=>{PICKUP_DAY=d;render();}; ctrl.appendChild(b); });
+  s.appendChild(ctrl);
+  s.appendChild(el('<div id="pickupList"></div>'));
+  fillPickup();
+}
+function fillPickup(){
+  const c=document.getElementById("pickupList"); if(!c)return; c.innerHTML="";
+  const q=(PICKUP_Q||"").toLowerCase();
+  [["Thursday","Cuban"],["Friday","BBQ"],["Saturday","BBQ"]].forEach(([day,prog])=>{
+    if(PICKUP_DAY!=="All" && PICKUP_DAY!==day) return;
+    const rows=db.getPreorders().filter(e=>e.day===day && (!q || e.o.name.toLowerCase().includes(q)));
+    if(!rows.length) return;
+    const card=el('<div class="card" style="margin-bottom:14px"><div class="between"><h3 style="font-size:15px">'+day+' · '+prog+' pre-orders</h3><span class="mut2" style="font-size:12px">'+rows.filter(r=>r.o.pickedUp).length+'/'+rows.length+' picked up</span></div></div>');
+    rows.forEach(e=>{
+      const row=el('<div class="pu-row"></div>');
+      row.appendChild(el('<div class="pu-main"><b>'+e.o.name+'</b><div class="mut2" style="font-size:12px">'+e.items+' · '+e.slot+'</div></div>'));
+      const tags=el('<div class="row" style="gap:6px;flex-wrap:wrap"></div>');
+      tags.appendChild(el('<span class="tag '+(e.o.paid?'green':'red')+'">'+(e.o.paid?'Paid':'Balance due')+'</span>'));
+      const pB=el('<button class="btn sm" style="'+(e.o.prepared?'background:var(--greendim);color:var(--green);border-color:transparent':'')+'">'+(e.o.prepared?'✓ Prepared':'Mark prepared')+'</button>');
+      pB.onclick=()=>{ db.togglePreorder(e.o,'prepared'); fillPickup(); };
+      const uB=el('<button class="btn sm" style="'+(e.o.pickedUp?'background:var(--ember);color:#211a08;border-color:transparent':'')+'">'+(e.o.pickedUp?'✓ Picked up':'Mark picked up')+'</button>');
+      uB.onclick=()=>{ db.togglePreorder(e.o,'pickedUp'); fillPickup(); };
+      tags.appendChild(pB); tags.appendChild(uB);
+      row.appendChild(tags); card.appendChild(row);
+    });
+    c.appendChild(card);
+  });
+  if(!c.children.length) c.appendChild(el('<div class="csub">No matching pre-orders.</div>'));
+}
+
+/* ---------- PACKING / PULL SHEET (Sprint 6) ---------- */
+function scrPacking(s){
+  s.innerHTML="";
+  s.appendChild(head("Packing / Pull Sheet","What to pull & pack by day · tap to check off as bagged","🖨 Print",()=>window.print()));
+  const area=el('<div id="printArea"></div>');
+  [["Thursday","Cuban"],["Friday","BBQ"],["Saturday","BBQ"]].forEach(([day,prog])=>{
+    const rows=db.getPreorders().filter(e=>e.day===day);
+    if(!rows.length) return;
+    const totalUnits=rows.reduce((a,r)=>a+(+r.o.qty||1),0);
+    const packed=rows.filter(r=>r.o.packed).length;
+    const card=el('<div class="card" style="margin-bottom:14px"><div class="between"><h3 style="font-size:15px">'+day+' · '+prog+'</h3><span class="tag ember">'+totalUnits+' '+(prog==='Cuban'?'Cubans':'packs')+' · '+packed+'/'+rows.length+' bagged</span></div><div class="csub">Customer bags to pull</div></div>');
+    rows.forEach(e=>{ const it=el('<div class="checkitem '+(e.o.packed?'done':'')+'"><div class="checkbox"></div><b>'+e.o.name+'</b> · '+e.items+' · '+e.slot+'</div>'); it.onclick=()=>{ db.togglePreorder(e.o,'packed'); scrPacking(document.getElementById("stage")); }; card.appendChild(it); });
+    area.appendChild(card);
+  });
+  // Item quantity totals across the week
+  const totCard=el('<div class="card" style="margin-bottom:14px"><h3 style="font-size:15px">Quantity totals</h3><div class="csub">Roll-up across all pre-orders</div></div>');
+  const cubans=(CUBAN.orders||[]).reduce((a,o)=>a+(+o.qty||0),0);
+  const bbqPacks=(BBQ.orders||[]).reduce((a,o)=>a+(+o.qty||0),0);
+  [["Cuban Sandwiches",cubans+" each"],["BBQ family packs",bbqPacks+" packs"]].forEach(r=>totCard.appendChild(el('<div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span>'+r[0]+'</span><b>'+r[1]+'</b></div>')));
+  area.appendChild(totCard);
+  // Catering pack-out (from orders)
+  const catOrders=(db.getOrders()||[]).filter(o=>o.type==='Catering');
+  if(catOrders.length){
+    const c=el('<div class="card" style="margin-bottom:14px"><h3 style="font-size:15px">Catering pack-out</h3><div class="csub">Event orders — chafing / trays</div></div>');
+    catOrders.forEach(o=>{ const full=db.getOrder(o.id)||{}; const items=(full.items||[]).map(i=>i.name+(i.qty?' ('+i.qty+')':'')).join(' · ')||'See order record'; const it=el('<div class="checkitem"><div class="checkbox"></div><b>'+o.cust+'</b> · '+(o.when||'')+'<div class="mut2" style="font-size:11px;margin-left:24px">'+items+'</div></div>'); it.onclick=()=>openObject('order',o.id); c.appendChild(it); });
+    area.appendChild(c);
+  }
+  s.appendChild(area);
+}
+
+/* ---------- MASTER CALENDAR (Sprint 6) ---------- */
+function scrCalendar(s){
+  s.innerHTML="";
+  s.appendChild(head("Master Calendar","The week at a glance · programs, pickups, prep & catering events",""));
+  const f=fireDates();
+  const dot=(color)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--'+color+');margin-right:7px;vertical-align:middle"></span>';
+  const stTag=(st)=> st==='open'?'<span class="tag green">Open</span>':'<span class="tag red">Cutoff passed</span>';
+  const days=[
+    {label:f.cuban.label, tag:stTag(f.cuban.status), items:[
+      {c:'ember',t:'Cuban Thursday — pickup',s:'11:00 AM–1:00 PM · '+(CUBAN.sold||0)+'/'+CUBAN.cap+' sold',obj:['program','cuban-thu']},
+      {c:'mut2',t:'Order cutoff',s:f.cuban.cutoff},
+      {c:'blue',t:'Kitchen — press Cubans + mojo pork',s:'Production day',obj:['program','cuban-thu']}
+    ]},
+    {label:f.bbqFri.label, tag:stTag(f.bbqFri.status), items:[
+      {c:'ember',t:'Fri/Sat BBQ — Friday pickup',s:'3:00–7:00 PM · '+(BBQ.sold||0)+'/'+BBQ.cap+' sold',obj:['program','bbq-weekend']},
+      {c:'mut2',t:'Order cutoff',s:f.bbqFri.cutoff},
+      {c:'blue',t:'Smoke start — brisket / pork',s:'Overnight offset pits'}
+    ]},
+    {label:f.bbqSat.label, tag:'', items:[
+      {c:'ember',t:'Fri/Sat BBQ — Saturday pickup',s:'11:00 AM–1:00 PM',obj:['program','bbq-weekend']},
+      {c:'blue',t:'Slice + pack to order',s:'Carryover from Friday smoke'}
+    ]}
+  ];
+  const cats=(db.getOrders()||[]).filter(o=>o.type==='Catering');
+  if(cats.length){ days.push({label:'Upcoming catering', tag:'', items:cats.map(o=>({c:'green',t:o.cust+(o.type?' · '+o.type:''),s:(o.when||'TBD')+' · '+(o.status||''),obj:['order',o.id]}))}); }
+  const g=el('<div class="grid" style="grid-template-columns:repeat(3,1fr)"></div>');
+  days.forEach(d=>{
+    const card=el('<div class="card"><div class="between"><h3 style="font-size:14px">'+d.label+'</h3>'+(d.tag||'')+'</div></div>');
+    d.items.forEach(it=>{ const row=el('<div style="padding:9px 0;border-top:1px solid var(--line)'+(it.obj?';cursor:pointer':'')+'"><div>'+dot(it.c)+'<b style="font-size:13px">'+it.t+'</b></div><div class="mut2" style="font-size:12px;margin-left:15px">'+it.s+'</div></div>'); if(it.obj){ row.onclick=()=>openObject(it.obj[0],it.obj[1]); } card.appendChild(row); });
+    g.appendChild(card);
+  });
+  s.appendChild(g);
+  s.appendChild(el('<div class="hint" style="margin-top:14px">Dates auto-advance to the next Thursday / Friday / Saturday. Cutoff status is computed live — no manual date bumping. Prototype: no real orders are placed here.</div>'));
+}
+
 /* ---------- MARKETING ---------- */
 function scrMarketing(s){
   s.innerHTML="";
@@ -852,6 +1114,36 @@ function scrReports(s){
   const total=rows.reduce((a,r)=>a+r[1],0); const tb=t.querySelector("tbody");
   rows.forEach(r=>tb.appendChild(el(`<tr><td><b>${r[0]}</b></td><td>${money(r[1])}</td><td style="width:220px"><div class="progress"><i style="width:${r[1]/total*100}%"></i></div></td><td>${r[2]}</td></tr>`)));
   s.appendChild(t);
+  s.appendChild(reportsCounts());
+}
+/* ---------- REPORTS · OPERATIONS COUNTS (Sprint 6) ---------- */
+function reportsCounts(){
+  const wrap=el('<div></div>');
+  const cat=db.getCatalog(), prep=db.getPrep();
+  const allItems=cat.reduce((a,g)=>a.concat(g.items),[]);
+  const prepCounted=allItems.filter(it=>prep.prep[it.id]!=null && prep.prep[it.id]!=="").length;
+  const rawCounted=allItems.filter(it=>prep.raw[it.id]!=null && prep.raw[it.id]!=="").length;
+  const toOrder=allItems.filter(it=>Math.max(0,it.par-(+(prep.raw[it.id]||0)))>0).length;
+  const pre=db.getPreorders();
+  const prepared=pre.filter(e=>e.o.prepared).length, picked=pre.filter(e=>e.o.pickedUp).length;
+  const pct=pre.length?Math.round(picked/pre.length*100):0;
+  wrap.appendChild(el('<h3 style="margin:22px 0 12px;font-size:15px">Operations counts</h3>'));
+  const g=el('<div class="grid" style="grid-template-columns:repeat(4,1fr)"></div>');
+  [["Prep count entered",prepCounted+" / "+allItems.length,"items on hand"],
+   ["Raw count entered",rawCounted+" / "+allItems.length,"ingredients"],
+   ["Order guide — to buy",toOrder+" items","below par"],
+   ["Pickup completion",pct+"%",picked+"/"+pre.length+" picked up"]].forEach(([t,v,d])=>g.appendChild(el('<div class="card"><div class="csub">'+t+'</div><div class="kpi">'+v+'</div><div class="mut2" style="font-size:12px;margin-top:4px">'+d+'</div></div>')));
+  wrap.appendChild(g);
+  // program sold + items needed by day
+  const split=el('<div class="grid" style="grid-template-columns:1fr 1fr;margin-top:16px"></div>');
+  const progCard=el('<div class="card"><h3 style="font-size:15px">Program sold</h3><div class="csub">This week</div></div>');
+  [["Thursday Cuban",CUBAN.sold,CUBAN.cap],["Fri/Sat BBQ",BBQ.sold,BBQ.cap]].forEach(([n,sold,cap])=>progCard.appendChild(el('<div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>'+n+'</span><b>'+sold+' / '+cap+' <span class="mut2" style="font-weight:400">('+Math.round(sold/cap*100)+'%)</span></b></div>')));
+  split.appendChild(progCard);
+  const dayCard=el('<div class="card"><h3 style="font-size:15px">Items needed by day</h3><div class="csub">Prepared vs remaining</div></div>');
+  [["Thursday","Cuban"],["Friday","BBQ"],["Saturday","BBQ"]].forEach(([day])=>{ const r=pre.filter(e=>e.day===day); if(!r.length)return; const p=r.filter(x=>x.o.prepared).length; dayCard.appendChild(el('<div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>'+day+'</span><b>'+p+' / '+r.length+' prepared</b></div>')); });
+  split.appendChild(dayCard);
+  wrap.appendChild(split);
+  return wrap;
 }
 
 /* ---------- SETTINGS ---------- */
@@ -876,6 +1168,7 @@ function scrSettings(s){
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Google Ads</span><span class="tag green">Connected</span></div>
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Meta Ads</span><span class="tag green">Connected</span></div></div>`));
   s.appendChild(g);
+  s.appendChild(catalogCard());
   s.appendChild(demoSettingsCard());
 }
 
@@ -1621,7 +1914,7 @@ const LS_KEY="firedrop_os_v5";
 function snapshot(){ return { v:5, ORDERS, ORD, QUOTES, QNUM, ONUM, ACTIVITY, LEADS, TASKS_G, PAYMENTS, KAmendAcked,
   CUBAN:{sold:CUBAN.sold,revenue:CUBAN.revenue,orders:CUBAN.orders},
   BBQ:{sold:BBQ.sold,revenue:BBQ.revenue,orders:BBQ.orders},
-  BATCHES }; }
+  BATCHES, PREP, CATALOG, KNOTES }; }
 function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(snapshot())); }catch(e){} }
 let _saveT; function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveState,300); }
 function loadState(){ try{
@@ -1633,6 +1926,9 @@ function loadState(){ try{
   if(typeof s.QNUM==="number")QNUM=s.QNUM; if(typeof s.ONUM==="number")ONUM=s.ONUM; KAmendAcked=!!s.KAmendAcked;
   if(s.CUBAN){ CUBAN.sold=s.CUBAN.sold; CUBAN.revenue=s.CUBAN.revenue; repArr(CUBAN.orders,s.CUBAN.orders); }
   if(s.BBQ){ BBQ.sold=s.BBQ.sold; BBQ.revenue=s.BBQ.revenue; repArr(BBQ.orders,s.BBQ.orders); }
+  if(s.PREP){ repObj(PREP.prep, s.PREP.prep); repObj(PREP.raw, s.PREP.raw); }
+  if(Array.isArray(s.CATALOG)){ s.CATALOG.forEach(g=>{ (g.items||[]).forEach(si=>{ CATALOG.forEach(cg=>cg.items.forEach(it=>{ if(it.id===si.id){ if(si.par!=null)it.par=si.par; if(si.active!=null)it.active=si.active; } })); }); }); }
+  if(typeof s.KNOTES==="string") KNOTES=s.KNOTES;
 }catch(e){ console.warn("FireDrop: load failed, using defaults",e); } }
 
 /* ---- DEMO MODE: sample workflows ---- */
@@ -1648,6 +1944,29 @@ function demoPickup(){ const row=ORDERS.find(o=>o.type==="Cuban")||ORDERS[0]; if
 const DEMO_ACTIONS=[["↺ Reset demo data",demoReset],["＋ Sample catering lead",demoLead],["＋ Sample Cuban pre-order",demoCuban],["👁 Simulate quote viewed",demoQuoteViewed],["＄ Simulate deposit paid",demoDeposit],["⚠ Simulate kitchen shortage",demoShortage],["✓ Simulate pickup complete",demoPickup]];
 function openDemoTools(){ if(document.getElementById("demoov")) return closeDemo(); const ov=el('<div class="pal-ov" id="demoov"><div class="pal" style="width:440px"><div style="padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700">▷ Demo tools <span class="mut2" style="font-weight:400;font-size:12px">· trigger sample workflows</span></div><div id="demoBody" style="padding:12px"></div></div></div>'); document.getElementById("drawer").appendChild(ov); ov.onclick=e=>{ if(e.target===ov) closeDemo(); }; const b=ov.querySelector("#demoBody"); DEMO_ACTIONS.forEach(a=>{ const btn=el('<button class="btn '+(a[0].indexOf("Reset")>=0?"":"")+'" style="width:100%;margin-bottom:8px;text-align:left">'+a[0]+'</button>'); btn.onclick=()=>{ closeDemo(); a[1](); }; b.appendChild(btn); }); }
 function closeDemo(){ const d=document.getElementById("demoov"); if(d)d.remove(); }
+/* ---------- ADMIN · MENU CATALOG (Sprint 6) ---------- */
+function catalogCard(){
+  const c=el('<div class="card" style="margin-top:16px"><div class="between"><h3>Menu catalog</h3><span id="prepSaved" class="tag green">Auto-saves ✓</span></div><div class="csub">Single source of truth — units, par levels, program availability & kitchen visibility. Edits drive the Prep Engine, Order Guide & Reports.</div></div>');
+  db.getCatalog().forEach(group=>{
+    c.appendChild(el('<h4 style="margin:14px 0 4px;font-size:13px;color:var(--mut)">'+group.cat+'</h4>'));
+    const t=el('<table><thead><tr><th>Item</th><th>Unit</th><th>Par</th><th>Programs</th><th>Kitchen</th><th>Status</th></tr></thead><tbody></tbody></table>');
+    const tb=t.querySelector("tbody");
+    group.items.forEach(it=>{
+      const active=(it.active!==false);
+      const prog=(it.id==="cuban"||it.id==="texaswhitebread")?"Cuban":(group.cat.indexOf("Meats")>=0||group.cat.indexOf("Sides")>=0)?"BBQ · Catering":"All";
+      const tr=el('<tr'+(active?'':' style="opacity:.5"')+'><td>'+it.name+'</td><td class="muted">'+it.unit+'</td></tr>');
+      const parTd=el('<td></td>'); const inp=el('<input class="qin" type="number" style="width:70px;padding:5px 7px;text-align:right" value="'+it.par+'">');
+      inp.oninput=(e)=>{ db.setCatalogItem(it.id,'par',+e.target.value||0); showPrepSaved(); }; parTd.appendChild(inp); tr.appendChild(parTd);
+      tr.appendChild(el('<td class="muted" style="font-size:12px">'+prog+'</td>'));
+      tr.appendChild(el('<td><span class="tag green">✓ visible</span></td>'));
+      const stTd=el('<td></td>'); const btn=el('<button class="btn sm '+(active?'':'ghost')+'">'+(active?'Active':'Inactive')+'</button>');
+      btn.onclick=()=>{ db.setCatalogItem(it.id,'active',!active); showPrepSaved(); render(); }; stTd.appendChild(btn); tr.appendChild(stTd);
+      tb.appendChild(tr);
+    });
+    c.appendChild(t);
+  });
+  return c;
+}
 function demoSettingsCard(){ const c=el('<div class="card" style="margin-top:16px"><h3>Demo data & workflows</h3><div class="csub">Prototype · saved to this browser (localStorage) · no backend</div></div>'); const row=el('<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>'); DEMO_ACTIONS.forEach(a=>{ const btn=el('<button class="btn sm '+(a[0].indexOf("Reset")>=0?"red":"")+'">'+a[0]+'</button>'); btn.onclick=a[1]; row.appendChild(btn); }); c.appendChild(row); c.appendChild(el('<div class="hint" style="margin-top:12px">Changes you make (quotes, orders, payments, amendments, kitchen status, tasks, lead stages) are saved locally and survive refresh. “Reset demo data” restores the original sample set.</div>')); return c; }
 function initDemoUI(){ const tb=document.querySelector(".topbar"); if(tb&&!document.getElementById("demopill")){ const pill=el('<span id="demopill" class="demopill">● DEMO MODE</span>'); tb.insertBefore(pill, tb.firstChild); } if(!document.getElementById("demoFab")){ const fab=el('<button id="demoFab" class="demofab">▷ Demo tools</button>'); fab.onclick=openDemoTools; document.body.appendChild(fab); } }
 
@@ -1694,6 +2013,17 @@ const db = {
   getProgram(id){ return PROGRAMS[id]||null; },
   getProgramWindows(){ return Object.values(WINDOWS); },
   getProgramWindow(id){ return WINDOWS[id]||null; },
+  /* Kitchen prep engine (Sprint 6) */
+  getCatalog(){ return CATALOG; },
+  getPrep(){ return PREP; },
+  setPrepCount(kind,id,val){ if(!PREP[kind])PREP[kind]={}; PREP[kind][id]=val; scheduleSave(); return val; },
+  setCatalogItem(id,field,val){ CATALOG.forEach(g=>g.items.forEach(it=>{ if(it.id===id) it[field]=val; })); scheduleSave(); },
+  /* Front counter pre-orders (aggregated from programs) */
+  getPreorders(){ const list=[];
+    (CUBAN.orders||[]).forEach(o=>list.push({o,program:"Cuban",programKey:"cuban-thu",day:"Thursday",items:(o.qty+" Cuban"+(o.qty>1?"s":"")),slot:o.slot}));
+    (BBQ.orders||[]).forEach(o=>{ const day=(o.slot||"").indexOf("Sat")>=0?"Saturday":"Friday"; list.push({o,program:"BBQ",programKey:"bbq-weekend",day,items:(o.item||(o.qty+" family pack"+(o.qty>1?"s":""))),slot:o.slot}); });
+    return list; },
+  togglePreorder(o,field){ o[field]=!o[field]; scheduleSave(); return o[field]; },
   /* Marketing / reviews / batches (read for now) */
   getCampaigns(){ return CAMPAIGNS; },
   getReviews(){ return REVIEWS; },
