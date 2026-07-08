@@ -629,7 +629,7 @@ function openLead(id){
   const act=d.querySelector("#leadAction");
   if(nextStage){
     const b=el(`<button class="btn primary" style="width:100%;padding:11px">Advance → ${nextStage}</button>`);
-    b.onclick=()=>{ l.stage=nextStage; l.timeline.unshift([nextStage,"Advanced in prototype","just now"]); if(nextStage==="Deposit Paid"&&l.quote){l.deposit=Math.round(l.quote*0.3);l.balance=l.quote-l.deposit;} closeDrawer(); if(SCREEN==="catering")render(); openLead(id); };
+    b.onclick=()=>{ const patch={stage:nextStage}; l.timeline.unshift([nextStage,"Advanced in prototype","just now"]); if(nextStage==="Deposit Paid"&&l.quote){patch.deposit=Math.round(l.quote*0.3);patch.balance=l.quote-patch.deposit;} db.updateLead(id,patch); closeDrawer(); if(SCREEN==="catering")render(); openLead(id); };
     act.appendChild(b);
   } else act.appendChild(el(`<div class="tag green">Lifecycle complete</div>`));
   if(idx>=2){ // Qualified or later → can build a quote (Sprint 3)
@@ -647,7 +647,7 @@ function scrCustomers(s){
   s.appendChild(head("Customers","One record, one timeline per customer","+ Add customer"));
   const t=el(`<div class="card"><table><thead><tr><th>Name</th><th>Type</th><th>Tags</th><th>Orders</th><th>Lifetime</th><th>Contact</th></tr></thead><tbody></tbody></table></div>`);
   const tb=t.querySelector("tbody");
-  CUSTOMERS.forEach(c=>{
+  db.getCustomers().forEach(c=>{
     const tr=el(`<tr class="clk"><td><b>${c.name}</b></td><td class="muted">${c.type}</td><td>${c.tags.map(x=>`<span class="tag" style="margin-right:4px">${x}</span>`).join("")}</td><td>${c.orders}</td><td>${ROLE==="kitchen"?"—":money(c.spend)}</td><td class="muted">${c.phone}</td></tr>`);
     tr.onclick=()=>openCustomer(c.id); tb.appendChild(tr);
   });
@@ -681,7 +681,7 @@ function scrOrders(s){
   s.appendChild(head("Orders","All orders across catering, Cuban & BBQ pre-orders · click any order to open its record","+ New order"));
   const t=el(`<div class="card"><table><thead><tr><th>Order</th><th>Customer</th><th>Type</th><th>Status</th>${ROLE==="kitchen"?"":"<th>Amount</th>"}<th>When</th><th>Kitchen</th></tr></thead><tbody></tbody></table></div>`);
   const tb=t.querySelector("tbody");
-  ORDERS.forEach(o=>{
+  db.getOrders().forEach(o=>{
     const stcls = o.status==="Paid"||o.status==="Fulfilled"?"green":o.status.includes("Balance")?"red":"ember";
     const tr=el(`<tr class="clk"><td><b>${o.id}</b></td><td>${o.cust}</td><td class="muted">${o.type}</td><td><span class="tag ${stcls}">${o.status}</span></td>${ROLE==="kitchen"?"":`<td>${money(o.amount)}</td>`}<td class="muted">${o.when}</td><td><span class="tag">${o.kitchen}</span></td></tr>`);
     tr.onclick=()=>openOrder(o.id);
@@ -1067,9 +1067,8 @@ function otFinancial(b,o){
 }
 function orderPay(id){
   const o=getOrder(id); const inp=document.getElementById("qpAmt"); let amt=inp?Math.round(+inp.value):0;
-  if(!amt||amt<=0) return; amt=Math.min(amt,o.total-o.paid);
-  o.paid+=amt; o.payments.unshift({when:"just now",amt,method:"Stripe · Quick Pay",type:"payment"});
-  o.timeline.push({who:"human",title:"Payment received",note:money(amt)+" · Stripe · Quick Pay",time:"just now",done:true});
+  if(!amt||amt<=0) return;
+  db.addPayment(id,{amount:amt,method:"Stripe · Quick Pay"});
   if(o.total-o.paid<=0){ o.ai.risks=["None — paid in full"]; }
   render();
   const m=document.getElementById("ordMoney"); if(m){ m.classList.add("paypulse"); }
@@ -1238,10 +1237,10 @@ function quoteTotals(q){
 }
 function createQuote(leadId){
   const l=LEADS.find(x=>x.id===leadId)||{}; const num=QNUM++; const key=num+".1";
-  QUOTES[key]={num,version:1,key,leadId,customer:l.name||"Customer",contact:l.contact||"—",phone:l.phone||"—",email:"—",
+  db.createQuote({num,version:1,key,leadId,customer:l.name||"Customer",contact:l.contact||"—",phone:l.phone||"—",email:"—",
     eventText:l.event||"", eventDate:l.date||"", headcount:parseGuests(l.event), serviceType:"Delivery + Setup",
     package:null, alacarte:[], deliveryFee:150, setupFee:0, taxRate:0.075, depositPct:0.5, balanceDue:"",
-    status:"Draft", sentAt:null, viewedAt:null, acceptedAt:null, expiresAt:null, orderId:null};
+    status:"Draft", sentAt:null, viewedAt:null, acceptedAt:null, expiresAt:null, orderId:null});
   OPEN_QUOTE=key; QVIEW="compose"; SCREEN="catering"; renderNav(); render();
 }
 function qGetAla(q,name){ const a=(q.alacarte||[]).find(x=>x.name===name); return a?a.qty:0; }
@@ -1262,7 +1261,6 @@ function createOrderFromQuote(q){
   const t=quoteTotals(q); const id="CAT-"+(ONUM++);
   const items=[]; if(q.package) items.push({name:q.package.name+" package",qty:q.headcount+" guests"});
   (q.alacarte||[]).forEach(a=>items.push({name:a.name,qty:String(a.qty)}));
-  ORDERS.unshift({id,cust:q.customer,type:"Catering",status:"Deposit paid",amount:t.total,when:q.eventDate||"TBD",kitchen:"Scheduled"});
   ORD[id]={ id, customerId:null, customer:q.customer, company:"", program:"Catering",
     status:"Deposit paid", priority:q.headcount>=120?"High":"Normal", locked:false, version:1,
     pickup:q.eventDate||"TBD", owner:"Charles", guests:q.headcount, location:q.serviceType,
@@ -1284,7 +1282,7 @@ function createOrderFromQuote(q){
     ],
     ai:{ risks:["Balance "+money(t.total-t.deposit)+" due "+(q.balanceDue||"before event")], next:"Lock the order and send the prep list to the kitchen", sentiment:"Positive — just accepted the quote", upsell:"Offer dessert platters (+$450)", conflicts:"Verify date against catering capacity", capacity:q.headcount>=120?"High load":"Moderate" }
   };
-  q.orderId=id; logActivity("order",id,"Order created",q.customer+" · "+money(t.total)); return id;
+  db.createOrder(ORD[id]); q.orderId=id; logActivity("order",id,"Order created",q.customer+" · "+money(t.total)); return id;
 }
 
 function renderQuote(s,key){
@@ -1441,7 +1439,7 @@ let ACTIVITY=[
   {ot:"review",id:"REV-01",verb:"Review received",label:"MacDill AFB · 5★",time:"6d ago"},
   {ot:"payment",id:"PAY-504",verb:"Payment received",label:"Jenna Powell · $14 Cuban",time:"Thu 11:00"}
 ];
-function logActivity(ot,id,verb,label){ ACTIVITY.unshift({ot,id,verb,label,time:"just now"}); }
+function logActivity(ot,id,verb,label){ db.addActivityEvent({ot,id,verb,label,time:"just now"}); }
 function custIdByName(n){ const c=CUSTOMERS.find(x=>x.name===n); return c?c.id:null; }
 function progName(pid){ return (PROGRAMS[pid]||{}).name||pid; }
 const OBJ_BADGE={customer:"Customer",lead:"Lead",quote:"Quote",order:"Order",program:"Program",window:"Window",task:"Task",payment:"Payment",communication:"Comm",batch:"Batch",campaign:"Campaign",review:"Review"};
@@ -1529,7 +1527,7 @@ function uOpen(type,id){
   body.appendChild(uBriefCard(type,id));
   // quick actions
   const qa=el('<div class="row" style="gap:8px;margin:14px 0 4px;flex-wrap:wrap"></div>');
-  if(type==="task"){ const t=TASKS_G.find(x=>x.id===id); const b=el('<button class="btn primary sm">'+(t.done?"Reopen task":"Mark complete")+'</button>'); b.onclick=()=>{ t.done=!t.done; if(t.done)logActivity("task",id,"Task completed",t.t); uOpen(type,id); }; qa.appendChild(b); }
+  if(type==="task"){ const t=TASKS_G.find(x=>x.id===id); const b=el('<button class="btn primary sm">'+(t.done?"Reopen task":"Mark complete")+'</button>'); b.onclick=()=>{ const nd=!t.done; db.updateTask(id,{done:nd}); if(nd)logActivity("task",id,"Task completed",t.t); uOpen(type,id); }; qa.appendChild(b); }
   if(type==="payment"){ qa.appendChild(el('<button class="btn sm ghost">View receipt</button>')); qa.appendChild(el('<button class="btn sm ghost">Refund (owner)</button>')); }
   if(type==="communication"){ qa.appendChild(el('<button class="btn sm">Reply</button>')); }
   if(type==="window"){ const b=el('<button class="btn primary sm">Open program</button>'); b.onclick=()=>openObject("program",(WINDOWS[id]||{}).program); qa.appendChild(b); }
@@ -1543,14 +1541,14 @@ function uOpen(type,id){
 /* ---- COMMAND PALETTE (⌘K / Ctrl+K) ---- */
 function searchIndex(){
   const ix=[];
-  CUSTOMERS.forEach(c=>ix.push({type:"customer",id:c.id,label:c.name,sub:"Customer · "+c.type}));
-  LEADS.forEach(l=>ix.push({type:"lead",id:l.id,label:l.name,sub:"Lead · "+l.stage}));
-  Object.values(QUOTES).forEach(q=>ix.push({type:"quote",id:q.key,label:quoteLabel(q)+" · "+q.customer,sub:"Quote · "+q.status}));
-  ORDERS.forEach(o=>ix.push({type:"order",id:o.id,label:o.id+" · "+o.cust,sub:"Order · "+o.status}));
-  Object.keys(PROGRAMS).forEach(k=>ix.push({type:"program",id:k,label:PROGRAMS[k].name,sub:"Program"}));
-  PAYMENTS.forEach(p=>ix.push({type:"payment",id:p.id,label:money(p.amount)+" · "+p.customer,sub:"Payment"}));
-  TASKS_G.forEach(t=>ix.push({type:"task",id:t.id,label:t.t,sub:"Task · "+t.due}));
-  CAMPAIGNS.forEach(c=>ix.push({type:"campaign",id:c.id,label:c.name,sub:"Campaign · "+c.channel}));
+  db.getCustomers().forEach(c=>ix.push({type:"customer",id:c.id,label:c.name,sub:"Customer · "+c.type}));
+  db.getLeads().forEach(l=>ix.push({type:"lead",id:l.id,label:l.name,sub:"Lead · "+l.stage}));
+  db.getQuotes().forEach(q=>ix.push({type:"quote",id:q.key,label:quoteLabel(q)+" · "+q.customer,sub:"Quote · "+q.status}));
+  db.getOrders().forEach(o=>ix.push({type:"order",id:o.id,label:o.id+" · "+o.cust,sub:"Order · "+o.status}));
+  db.getPrograms().forEach(p=>ix.push({type:"program",id:p.id,label:p.name,sub:"Program"}));
+  db.getPayments().forEach(p=>ix.push({type:"payment",id:p.id,label:money(p.amount)+" · "+p.customer,sub:"Payment"}));
+  db.getTasks().forEach(t=>ix.push({type:"task",id:t.id,label:t.t,sub:"Task · "+t.due}));
+  db.getCampaigns().forEach(c=>ix.push({type:"campaign",id:c.id,label:c.name,sub:"Campaign · "+c.channel}));
   return ix;
 }
 let PAL_SEL=0, PAL_RES=[];
@@ -1573,13 +1571,13 @@ function openActivity(){ if(document.getElementById("actov")) return closeActivi
   const ov=el('<div class="pal-ov" id="actov"><div class="pal"><div style="padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700">⚡ Activity feed <span class="mut2" style="font-weight:400;font-size:12px">· recent events across FireDrop</span></div><div class="res" id="actRes"></div></div></div>');
   document.getElementById("drawer").appendChild(ov); ov.onclick=e=>{ if(e.target===ov) closeActivity(); };
   const res=ov.querySelector("#actRes");
-  ACTIVITY.forEach(a=>{ const row=el('<div class="r"><span class="rb">'+activityIcon(a.verb)+'</span><span class="rt">'+a.verb+'</span><span class="rs">'+a.label+' · '+a.time+'</span></div>'); row.onclick=()=>{ closeActivity(); openObject(a.ot,a.id); }; res.appendChild(row); });
+  db.getActivityEvents().forEach(a=>{ const row=el('<div class="r"><span class="rb">'+activityIcon(a.verb)+'</span><span class="rt">'+a.verb+'</span><span class="rs">'+a.label+' · '+a.time+'</span></div>'); row.onclick=()=>{ closeActivity(); openObject(a.ot,a.id); }; res.appendChild(row); });
 }
 function closeActivity(){ const a=document.getElementById("actov"); if(a)a.remove(); }
 function activityCard(){
   const c=el('<div class="card" style="margin-top:16px"><div class="between"><h3>⚡ Activity feed</h3><button class="btn sm ghost">View all</button></div><div class="csub">Recent events across FireDrop · click any to open the object</div></div>');
   c.querySelector("button").onclick=openActivity;
-  ACTIVITY.slice(0,6).forEach(a=>{ const row=el('<div class="between" style="padding:9px 0;border-top:1px solid var(--line);cursor:pointer"><span><b style="font-size:13px">'+a.verb+'</b> <span class="muted" style="font-size:12px">· '+a.label+'</span></span><span class="mut2" style="font-size:11px">'+a.time+'</span></div>'); row.onclick=()=>openObject(a.ot,a.id); c.appendChild(row); });
+  db.getActivityEvents().slice(0,6).forEach(a=>{ const row=el('<div class="between" style="padding:9px 0;border-top:1px solid var(--line);cursor:pointer"><span><b style="font-size:13px">'+a.verb+'</b> <span class="muted" style="font-size:12px">· '+a.label+'</span></span><span class="mut2" style="font-size:11px">'+a.time+'</span></div>'); row.onclick=()=>openObject(a.ot,a.id); c.appendChild(row); });
   return c;
 }
 
@@ -1640,9 +1638,9 @@ function loadState(){ try{
 /* ---- DEMO MODE: sample workflows ---- */
 function _uid(pfx){ return pfx+"-"+Date.now().toString().slice(-6); }
 function demoReset(){ try{localStorage.removeItem(LS_KEY);}catch(e){} try{history.replaceState(null,"",location.pathname+location.search);}catch(e){} location.reload(); }
-function demoLead(){ const id=_uid("L"); LEADS.unshift({id,name:"Westshore Chamber Mixer",contact:"Pat Nguyen",phone:"813-555-0234",source:"Website",stage:"New",created:"just now",sla:"On track",slaState:"ok",event:"Networking mixer · 90 guests",date:"Sep 12",quote:0,deposit:0,balance:0,owner:"Unassigned",next:"First contact due",timeline:[["New lead","Website catering form","just now"]]}); logActivity("lead",id,"Lead created","Westshore Chamber Mixer · Website"); closeDrawer(); OPEN_ORDER=OPEN_QUOTE=null; SCREEN="catering"; renderNav(); render(); saveState(); toast("Sample catering lead created"); }
+function demoLead(){ const id=_uid("L"); db.createLead({id,name:"Westshore Chamber Mixer",contact:"Pat Nguyen",phone:"813-555-0234",source:"Website",stage:"New",created:"just now",sla:"On track",slaState:"ok",event:"Networking mixer · 90 guests",date:"Sep 12",quote:0,deposit:0,balance:0,owner:"Unassigned",next:"First contact due",timeline:[["New lead","Website catering form","just now"]]}); logActivity("lead",id,"Lead created","Westshore Chamber Mixer · Website"); closeDrawer(); OPEN_ORDER=OPEN_QUOTE=null; SCREEN="catering"; renderNav(); render(); saveState(); toast("Sample catering lead created"); }
 function demoCuban(){ const id=_uid("C"); ORDERS.unshift({id,cust:"Rosa Delgado",type:"Cuban",status:"Paid",amount:28,when:"Thu 12:00",kitchen:"Queued"}); CUBAN.sold+=2; CUBAN.revenue+=28; CUBAN.orders.unshift({name:"Rosa Delgado",qty:2,paid:true,slot:"12:00–12:30"}); logActivity("order",id,"Order created","Rosa Delgado · 2 Cubans"); closeDrawer(); OPEN_ORDER=OPEN_QUOTE=null; SCREEN="programs"; renderNav(); render(); saveState(); toast("Sample Cuban pre-order created"); }
-function _demoBuildQuote(lead,status,pkgIdx,ala){ const num=QNUM++; const key=num+".1"; QUOTES[key]={num,version:1,key,leadId:lead.id,customer:lead.name,contact:lead.contact||"—",phone:lead.phone||"—",email:"—",eventText:lead.event,eventDate:lead.date||"Sep 20",headcount:parseGuests(lead.event),serviceType:"Delivery + Setup",package:PACKAGES[pkgIdx],alacarte:ala||[],deliveryFee:150,setupFee:0,taxRate:0.075,depositPct:0.5,balanceDue:"3 days before event",status,sentAt:"just now",viewedAt:(status==="Viewed"||status==="Accepted")?"just now":null,acceptedAt:status==="Accepted"?"just now":null,expiresAt:"in 14 days",orderId:null}; return key; }
+function _demoBuildQuote(lead,status,pkgIdx,ala){ const num=QNUM++; const key=num+".1"; db.createQuote({num,version:1,key,leadId:lead.id,customer:lead.name,contact:lead.contact||"—",phone:lead.phone||"—",email:"—",eventText:lead.event,eventDate:lead.date||"Sep 20",headcount:parseGuests(lead.event),serviceType:"Delivery + Setup",package:PACKAGES[pkgIdx],alacarte:ala||[],deliveryFee:150,setupFee:0,taxRate:0.075,depositPct:0.5,balanceDue:"3 days before event",status,sentAt:"just now",viewedAt:(status==="Viewed"||status==="Accepted")?"just now":null,acceptedAt:status==="Accepted"?"just now":null,expiresAt:"in 14 days",orderId:null}); return key; }
 function demoQuoteViewed(){ const lead=LEADS.find(l=>STAGES.indexOf(l.stage)>=2)||LEADS[0]; const key=_demoBuildQuote(lead,"Viewed",1,[]); const t=quoteTotals(QUOTES[key]); if(STAGES.indexOf(lead.stage)<STAGES.indexOf("Quote Viewed"))lead.stage="Quote Viewed"; lead.quote=t.total; logActivity("quote",key,"Quote viewed",lead.name+" · "+money(t.total)); closeDrawer(); OPEN_QUOTE=key; QVIEW="customer"; SCREEN="catering"; renderNav(); render(); saveState(); toast("Quote sent & viewed — "+quoteLabel(QUOTES[key])); }
 function demoDeposit(){ const lead=LEADS.find(l=>STAGES.indexOf(l.stage)>=2)||LEADS[0]; const key=_demoBuildQuote(lead,"Accepted",2,[{name:"Banana Pudding (tray)",price:38,cost:12,qty:2}]); payDeposit(key); saveState(); toast("Deposit paid — order created"); }
 function demoShortage(){ const b=BATCHES.find(x=>x.id==="BATCH-02"); if(b)b.short=true; logActivity("batch","BATCH-02","Kitchen shortage flagged","Cuban bread short 18"); closeDrawer(); OPEN_ORDER=OPEN_QUOTE=null; SCREEN="kitchen"; renderNav(); render(); saveState(); toast("Kitchen shortage flagged"); }
@@ -1652,6 +1650,67 @@ function openDemoTools(){ if(document.getElementById("demoov")) return closeDemo
 function closeDemo(){ const d=document.getElementById("demoov"); if(d)d.remove(); }
 function demoSettingsCard(){ const c=el('<div class="card" style="margin-top:16px"><h3>Demo data & workflows</h3><div class="csub">Prototype · saved to this browser (localStorage) · no backend</div></div>'); const row=el('<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>'); DEMO_ACTIONS.forEach(a=>{ const btn=el('<button class="btn sm '+(a[0].indexOf("Reset")>=0?"red":"")+'">'+a[0]+'</button>'); btn.onclick=a[1]; row.appendChild(btn); }); c.appendChild(row); c.appendChild(el('<div class="hint" style="margin-top:12px">Changes you make (quotes, orders, payments, amendments, kitchen status, tasks, lead stages) are saved locally and survive refresh. “Reset demo data” restores the original sample set.</div>')); return c; }
 function initDemoUI(){ const tb=document.querySelector(".topbar"); if(tb&&!document.getElementById("demopill")){ const pill=el('<span id="demopill" class="demopill">● DEMO MODE</span>'); tb.insertBefore(pill, tb.firstChild); } if(!document.getElementById("demoFab")){ const fab=el('<button id="demoFab" class="demofab">▷ Demo tools</button>'); fab.onclick=openDemoTools; document.body.appendChild(fab); } }
+
+/* =========================================================
+   DATA ACCESS LAYER (Sprint 5A)
+   One seam over the store. Today: in-memory + localStorage.
+   Later: swap ONLY these internals for Supabase — screens call db.* and never
+   touch global arrays directly, so no UI rewrite is needed.
+   ========================================================= */
+function _orderRow(r){ const kitchen = r.production==="Picked up"||r.production==="Completed"?"Done": r.production==="Scheduled"?"Scheduled":"Queued"; return {id:r.id,cust:r.customer,type:r.program,status:r.status,amount:r.total,when:r.pickup,kitchen}; }
+const db = {
+  /* Customers */
+  getCustomers(){ return CUSTOMERS; },
+  getCustomer(id){ return CUSTOMERS.find(c=>c.id===id)||null; },
+  updateCustomer(id,data){ const c=CUSTOMERS.find(x=>x.id===id); if(c)Object.assign(c,data); db.saveState(); return c; },
+  /* Leads */
+  getLeads(){ return LEADS; },
+  getLead(id){ return LEADS.find(l=>l.id===id)||null; },
+  createLead(data){ LEADS.unshift(data); db.saveState(); return data; },
+  updateLead(id,data){ const l=LEADS.find(x=>x.id===id); if(l)Object.assign(l,data); db.saveState(); return l; },
+  /* Quotes */
+  getQuotes(){ return Object.values(QUOTES); },
+  getQuote(id){ return QUOTES[id]||null; },
+  createQuote(data){ QUOTES[data.key]=data; db.saveState(); return data; },
+  updateQuote(id,data){ const q=QUOTES[id]; if(q)Object.assign(q,data); db.saveState(); return q; },
+  /* Orders */
+  getOrders(){ return ORDERS; },
+  getOrder(id){ return getOrder(id); },
+  createOrder(rich){ ORD[rich.id]=rich; if(!ORDERS.find(r=>r.id===rich.id)) ORDERS.unshift(_orderRow(rich)); db.saveState(); return rich; },
+  updateOrder(id,data){ const o=ORD[id]||getOrder(id); if(o)Object.assign(o,data); const row=ORDERS.find(r=>r.id===id); if(row){ if(data.status)row.status=data.status; if(data.production)row.kitchen=_orderRow(o).kitchen; } db.saveState(); return o; },
+  addPayment(orderId,data){ const o=getOrder(orderId); if(!o)return null; const amt=Math.min(data.amount, o.total-o.paid); o.paid+=amt; (o.payments=o.payments||[]).unshift({when:data.when||"just now",amt,method:data.method||"Stripe",type:data.type||"payment"}); (o.timeline=o.timeline||[]).push({who:"human",title:"Payment received",note:money(amt)+" · "+(data.method||"Stripe"),time:"just now",done:true}); PAYMENTS.unshift({id:_uid("PAY"),amount:amt,method:data.method||"Stripe",status:"Captured",orderId:orderId,customer:o.customer}); db.addActivityEvent({ot:"order",id:orderId,verb:"Payment received",label:o.customer+" · "+money(amt),time:"just now"}); db.saveState(); return o; },
+  /* Payments */
+  getPayments(){ return PAYMENTS; },
+  getPayment(id){ return PAYMENTS.find(p=>p.id===id)||null; },
+  /* Tasks */
+  getTasks(){ return TASKS_G; },
+  getTask(id){ return TASKS_G.find(t=>t.id===id)||null; },
+  updateTask(id,data){ const t=TASKS_G.find(x=>x.id===id); if(t)Object.assign(t,data); db.saveState(); return t; },
+  /* Communications */
+  getCommunications(){ return COMMS; },
+  getCommunication(id){ return COMMS.find(c=>c.id===id)||null; },
+  /* Programs & windows */
+  getPrograms(){ return Object.values(PROGRAMS); },
+  getProgram(id){ return PROGRAMS[id]||null; },
+  getProgramWindows(){ return Object.values(WINDOWS); },
+  getProgramWindow(id){ return WINDOWS[id]||null; },
+  /* Marketing / reviews / batches (read for now) */
+  getCampaigns(){ return CAMPAIGNS; },
+  getReviews(){ return REVIEWS; },
+  getBatches(){ return BATCHES; },
+  /* Activity */
+  getActivityEvents(){ return ACTIVITY; },
+  addActivityEvent(data){ if(!data.time)data.time="just now"; ACTIVITY.unshift(data); scheduleSave(); return data; },
+  /* Settings (static config until backend) */
+  getSettings(){ return { roles:["owner","catering_manager","kitchen","counter"], programs:Object.keys(PROGRAMS), dataMode:"demo" }; },
+  saveSettings(){ db.saveState(); },
+  /* Persistence + demo */
+  saveState(){ saveState(); },
+  scheduleSave(){ scheduleSave(); },
+  loadState(){ loadState(); },
+  resetDemoData(){ demoReset(); }
+};
+window.db = db;
 
 /* ---- boot: restore state before first render; wire demo UI after login ---- */
 loadState();
