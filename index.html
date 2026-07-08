@@ -228,6 +228,7 @@
   .pu-row{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line);flex-wrap:wrap}
   .pu-main{flex:1;min-width:150px}
   @media(max-width:768px){ .pu-row .btn{flex:1} }
+  @media print{ .side,.topbar,.demofab,.demopill,#viewas,.otabs{display:none!important} main{margin:0!important} .stage{padding:0!important} .btn{display:none!important} }
   /* ---------- RESPONSIVE (tablet + mobile) ---------- */
   @media(max-width:1024px){ .grid{grid-template-columns:repeat(2,1fr)!important} }
   @media(max-width:768px){
@@ -323,6 +324,7 @@
       <div class="roletoggle">
         <button id="r-owner" class="on" onclick="setRole('owner')">Owner</button>
         <button id="r-kitchen" onclick="setRole('kitchen')">Kitchen</button>
+        <button id="r-counter" onclick="setRole('counter')">Counter</button>
       </div>
     </div>
   </nav>
@@ -370,6 +372,7 @@ const NAV = [
   ["settings","Settings","⚙"],
 ];
 const KITCHEN_NAV = ["kitchen","programs"];
+const COUNTER_NAV = ["pickup","packing","programs"];
 
 /* ---------------- SAMPLE DATA ---------------- */
 const STAGES = ["New","Contacted","Qualified","Quote Sent","Quote Viewed","Deposit Paid","Order Locked","In Production","Fulfilled","Follow-up"];
@@ -485,21 +488,23 @@ function enterApp(){ document.getElementById("login").classList.add("hide"); doc
 
 function setRole(r){
   ROLE=r;
-  document.getElementById("r-owner").classList.toggle("on",r==="owner");
-  document.getElementById("r-kitchen").classList.toggle("on",r==="kitchen");
+  ["owner","kitchen","counter"].forEach(x=>{ const b=document.getElementById("r-"+x); if(b)b.classList.toggle("on",r===x); });
   document.body.classList.toggle("kmode",r==="kitchen");
-  document.getElementById("avatar").textContent = r==="kitchen"?"KP":"CD";
-  document.getElementById("whoname").textContent = r==="kitchen"?"Kitchen · Pit":"Charles D.";
+  document.body.classList.toggle("cmode",r==="counter");
+  document.getElementById("avatar").textContent = r==="kitchen"?"KP":r==="counter"?"FC":"CD";
+  document.getElementById("whoname").textContent = r==="kitchen"?"Kitchen · Pit":r==="counter"?"Front Counter":"Charles D.";
   if(r==="kitchen" && !KITCHEN_NAV.includes(SCREEN)) SCREEN="kitchen";
+  if(r==="counter" && !COUNTER_NAV.includes(SCREEN)) SCREEN="pickup";
   let vw=document.getElementById("viewas");
-  if(r==="kitchen"){ if(!vw){ vw=el('<div id="viewas" class="viewas">◉ Viewing as Kitchen — read-only preview · owner · logged</div>'); document.body.appendChild(vw); } }
+  const vwText = r==="kitchen"?"◉ Viewing as Kitchen — read-only preview · owner · logged" : r==="counter"?"◉ Viewing as Front Counter — read-only preview · owner · logged" : "";
+  if(vwText){ if(!vw){ vw=el('<div id="viewas" class="viewas"></div>'); document.body.appendChild(vw); } vw.textContent=vwText; }
   else if(vw){ vw.remove(); }
   renderNav(); render();
 }
 
 function renderNav(){
   const nav=document.getElementById("nav"); nav.innerHTML="";
-  const items = ROLE==="kitchen" ? NAV.filter(n=>KITCHEN_NAV.includes(n[0])) : NAV;
+  const items = ROLE==="kitchen" ? NAV.filter(n=>KITCHEN_NAV.includes(n[0])) : ROLE==="counter" ? NAV.filter(n=>COUNTER_NAV.includes(n[0])) : NAV;
   const badges = {catering: LEADS.filter(l=>l.slaState==="late"||l.slaState==="warn").length, kitchen:1};
   items.forEach(([id,label,ic])=>{
     const b = badges[id]? `<span class="badge">${badges[id]}</span>`:"";
@@ -708,15 +713,17 @@ function scrPrograms(s){
   s.innerHTML="";
   s.appendChild(head("Programs","Recurring pre-order programs · capacity, sold, remaining, cutoff, waitlist","+ New program"));
   const g=el(`<div class="grid" style="grid-template-columns:1fr 1fr"></div>`);
+  const f=(typeof fireDates==="function")?fireDates():null;
   [CUBAN,BBQ].forEach(p=>{
     const rem=p.cap-p.sold; const pct=p.sold/p.cap*100; const soldOut=rem<=0;
+    const dayLabel = f ? (p===CUBAN ? (f.cuban.label+" · Cuban pickup") : (f.bbqFri.label+" – "+f.bbqSat.label)) : p.day;
     const c=el(`<div class="card"><div class="between"><h3>${p.name}</h3><span class="tag ${soldOut?'red':'ember'}">${soldOut?'SOLD OUT':'Window open'}</span></div>
-      <div class="csub">${p.day}</div>
+      <div class="csub">${dayLabel}</div>
       <div class="row" style="gap:22px;margin:4px 0 12px">
         <div><div class="mut2" style="font-size:11px">CAP</div><div class="kpi sm">${p.cap}</div></div>
         <div><div class="mut2" style="font-size:11px">SOLD</div><div class="kpi sm">${p.sold}</div></div>
         <div><div class="mut2" style="font-size:11px">REMAINING</div><div class="kpi sm" style="color:${rem<10?'var(--ember2)':'inherit'}">${rem}</div></div>
-        ${ROLE==="kitchen"?"":`<div><div class="mut2" style="font-size:11px">REVENUE</div><div class="kpi sm">${money(p.revenue)}</div></div>`}
+        ${ROLE!=="owner"?"":`<div><div class="mut2" style="font-size:11px">REVENUE</div><div class="kpi sm">${money(p.revenue)}</div></div>`}
       </div>
       <div class="progress"><i style="width:${pct}%"></i></div>
       <div class="between" style="margin-top:12px"><span class="muted" style="font-size:12px">Cutoff in <b class="cd" data-t="${p.cutoffTarget}" style="color:var(--ember2)">—</b></span></div>
@@ -817,7 +824,7 @@ function scrKitchen(s){
   s.innerHTML="";
   const pendingAmend = !KAmendAcked;
   const primaryLabel = pendingAmend ? "⚡ Acknowledge amendment" : "⎙ Print prep sheet";
-  const primaryFn = pendingAmend ? (()=>{ KAmendAcked=true; render(); }) : (()=>window.print());
+  const primaryFn = pendingAmend ? (()=>{ askPIN("Acknowledge amendment",(pin)=>{ KAmendAcked=true; logActivity("batch","AMEND","Amendment acknowledged","Delgado +2 lb brisket · by "+pin); saveState(); render(); }); }) : (()=>window.print());
   const h=head("Kitchen — Production","Production truth for "+KITCHEN.date+" · no pricing",primaryLabel,primaryFn);
   s.appendChild(h);
   // Sprint 6: Prep Engine sub-tabs (Today view unchanged; new demand-driven tabs added)
@@ -845,16 +852,18 @@ function scrKitchen(s){
   const adj=el(`<button class="btn sm">Adjust qty (reason + PIN)</button>`);
   const flag=el(`<button class="btn sm" style="border-color:var(--red);color:var(--red)">⚠ Flag shortage</button>`);
   const prn=el(`<button class="btn sm" onclick="window.print()">🖨 Print</button>`);
+  adj.onclick=()=>{ askPIN("Adjust quantity — reason + PIN",(pin)=>{ logActivity("batch","ADJUST","Kitchen quantity adjusted","by "+pin+" · reason logged"); toast("Adjustment logged"); }); };
   flag.onclick=()=>{
     if(document.getElementById("shortagePanel")) return;
-    const panel=el(`<div id="shortagePanel" class="card" style="margin-top:14px;border-color:var(--red)">
-      <div class="between"><h3 style="color:var(--red)">Shortage — affected orders (paid catering first)</h3><span class="tag red">Owner + CM alerted</span></div>
-      <div class="csub">System prioritized the affected orders automatically</div>
-      <div class="queue"><span class="tag red">1</span><b class="kbig">Delgado Wedding · CAT-1038</b><span class="muted" style="margin-left:auto">Paid catering · protect first</span></div>
-      <div class="queue"><span class="tag amber">2</span><b class="kbig">Sofia Reyes · 4 Cubans</b><span class="muted" style="margin-left:auto">Paid pre-order</span></div>
-      <div class="queue"><span class="tag">3</span><b class="kbig">Walk-in allocation · 23</b><span class="muted" style="margin-left:auto">Reduce first</span></div>
-    </div>`);
+    // Build the affected list from REAL orders: paid catering first, then paid pre-orders, then walk-in
+    const affected=[];
+    (db.getOrders()||[]).filter(o=>o.type==="Catering").forEach(o=>affected.push([o.cust+" · "+o.id,"Paid catering · protect first","red"]));
+    db.getPreorders().filter(e=>e.o.paid).slice(0,4).forEach(e=>affected.push([e.o.name+" · "+e.items,"Paid pre-order","amber"]));
+    affected.push(["Walk-in allocation","Reduce first here",""]);
+    const rows=affected.map((a,i)=>'<div class="queue"><span class="tag '+(a[2]||"")+'">'+(i+1)+'</span><b class="kbig">'+a[0]+'</b><span class="muted" style="margin-left:auto">'+a[1]+'</span></div>').join("");
+    const panel=el('<div id="shortagePanel" class="card" style="margin-top:14px;border-color:var(--red)"><div class="between"><h3 style="color:var(--red)">Shortage — affected orders (paid catering first)</h3><span class="tag red">Owner + CM alerted</span></div><div class="csub">System prioritized the affected orders automatically</div>'+rows+'</div>');
     printArea.appendChild(panel); panel.scrollIntoView({behavior:"smooth"});
+    logActivity("batch","SHORTAGE","Kitchen shortage flagged",affected.length+" orders affected · owner alerted");
   };
   actions.appendChild(adj); actions.appendChild(flag); actions.appendChild(prn);
   printArea.appendChild(actions);
@@ -911,7 +920,10 @@ function ktPrepList(s){
     const t=el('<table><thead><tr><th>Item</th><th>Suggested</th><th>On hand</th><th>To make</th></tr></thead><tbody></tbody></table>');
     const tb=t.querySelector("tbody");
     group.items.forEach(it=>{ const suggested=(dem[it.id]!=null?dem[it.id]:it.par); const have=+(db.getPrep().prep[it.id]||0); const toMake=Math.max(0,suggested-have);
-      tb.appendChild(el('<tr><td>'+it.name+'</td><td class="muted">'+suggested+' '+it.unit+'</td><td>'+(have||0)+'</td><td>'+(toMake>0?'<span class="tag amber">'+toMake+' '+it.unit+'</span>':'<span class="tag green">ready</span>')+'</td></tr>'));
+      let why="par level";
+      if(it.id==="cuban") why=(CUBAN.sold||0)+" pre-orders + walk-in";
+      else if(["brisket","pork","ribs"].indexOf(it.id)>=0) why="from "+(BBQ.sold||0)+" BBQ orders";
+      tb.appendChild(el('<tr><td>'+it.name+'</td><td class="muted">'+suggested+' '+it.unit+'<div class="mut2" style="font-size:11px">'+why+'</div></td><td>'+(have||0)+'</td><td>'+(toMake>0?'<span class="tag amber">'+toMake+' '+it.unit+'</span>':'<span class="tag green">ready</span>')+'</td></tr>'));
     });
     card.appendChild(t); s.appendChild(card);
   });
@@ -953,6 +965,17 @@ function ktNotes(s){
   s.appendChild(ta);
 }
 
+/* ---------- STAFF ATTRIBUTION (Sprint 7 punch list) ---------- */
+function askPIN(title,cb){
+  const ov=el('<div class="pal-ov" id="pinov"><div class="pal" style="width:320px"><div style="padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700">'+title+'</div><div style="padding:16px"><div class="csub" style="margin-bottom:8px">Enter staff PIN or initials — for the record</div><input id="pinIn" class="qin" style="width:100%;text-align:center;font-size:18px;letter-spacing:3px" placeholder="••••" maxlength="8"><div class="row" style="gap:8px;margin-top:12px"><button class="btn sm primary" id="pinOk" style="flex:1">Confirm</button><button class="btn sm" id="pinX">Cancel</button></div></div></div></div>');
+  document.getElementById("drawer").appendChild(ov);
+  const inp=ov.querySelector("#pinIn"); setTimeout(()=>inp.focus(),40);
+  const close=()=>ov.remove();
+  const go=()=>{ const v=(inp.value||"").trim()||"—"; close(); cb(v); };
+  ov.querySelector("#pinX").onclick=close; ov.onclick=e=>{ if(e.target===ov)close(); };
+  ov.querySelector("#pinOk").onclick=go; inp.onkeydown=e=>{ if(e.key==="Enter")go(); if(e.key==="Escape")close(); };
+}
+
 /* ---------- FRONT COUNTER · PICKUP (Sprint 6) ---------- */
 // Auto-advancing Fire Drop dates (prototype-safe: computed from real "today", persisted nowhere)
 function _nextDow(dow){ const d=new Date(); const diff=(dow-d.getDay()+7)%7; d.setDate(d.getDate()+diff); d.setHours(0,0,0,0); return d; }
@@ -979,6 +1002,15 @@ function scrPickup(s){
   ctrl.appendChild(search);
   ["All","Thursday","Friday","Saturday"].forEach(d=>{ const b=el('<button class="btn sm '+(PICKUP_DAY===d?'primary':'ghost')+'">'+d+'</button>'); b.onclick=()=>{PICKUP_DAY=d;render();}; ctrl.appendChild(b); });
   s.appendChild(ctrl);
+  // Walk-in quick add (surfaces existing pre-order create; no new payment handling)
+  const add=el('<div class="card" style="margin-bottom:14px;padding:12px 14px"><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><b style="font-size:13px">＋ Walk-in</b><input id="wiName" class="qin" placeholder="Customer name" style="flex:1;min-width:140px"><input id="wiQty" class="qin" type="number" value="1" min="1" style="width:64px"><select id="wiProg" class="qin" style="min-width:130px"><option value="cuban-thu">Cuban (Thu)</option><option value="bbq-weekend">BBQ (Fri/Sat)</option></select><button class="btn sm primary" id="wiAdd">Add order</button></div></div>');
+  add.querySelector("#wiAdd").onclick=()=>{
+    const name=(add.querySelector("#wiName").value||"").trim(); const qty=Math.max(1,+add.querySelector("#wiQty").value||1); const pk=add.querySelector("#wiProg").value;
+    if(!name){ toast("Enter a customer name"); return; }
+    const data = pk==="bbq-weekend" ? {name,qty,paid:false,slot:"Fri walk-in",item:qty+" family pack"+(qty>1?"s":"")} : {name,qty,paid:false,slot:"Walk-in"};
+    db.addPreorder(pk,data); logActivity("order","WALKIN","Walk-in order added",name+" · "+(pk==="bbq-weekend"?"BBQ":"Cuban")); toast("Walk-in added — "+name); render();
+  };
+  s.appendChild(add);
   s.appendChild(el('<div id="pickupList"></div>'));
   fillPickup();
 }
@@ -995,10 +1027,12 @@ function fillPickup(){
       row.appendChild(el('<div class="pu-main"><b>'+e.o.name+'</b><div class="mut2" style="font-size:12px">'+e.items+' · '+e.slot+'</div></div>'));
       const tags=el('<div class="row" style="gap:6px;flex-wrap:wrap"></div>');
       tags.appendChild(el('<span class="tag '+(e.o.paid?'green':'red')+'">'+(e.o.paid?'Paid':'Balance due')+'</span>'));
+      if(e.o.packed) tags.appendChild(el('<span class="tag">🧺 Bagged</span>'));
+      if(!e.o.paid){ const cB=el('<button class="btn sm" style="border-color:var(--amber);color:var(--amber)">Balance collected</button>'); cB.onclick=()=>{ e.o.paid=true; saveState(); logActivity("order","PAYREC","Balance recorded",e.o.name+" · collected in POS"); toast("Recorded — collect in your POS"); fillPickup(); }; tags.appendChild(cB); }
       const pB=el('<button class="btn sm" style="'+(e.o.prepared?'background:var(--greendim);color:var(--green);border-color:transparent':'')+'">'+(e.o.prepared?'✓ Prepared':'Mark prepared')+'</button>');
       pB.onclick=()=>{ db.togglePreorder(e.o,'prepared'); fillPickup(); };
       const uB=el('<button class="btn sm" style="'+(e.o.pickedUp?'background:var(--ember);color:#211a08;border-color:transparent':'')+'">'+(e.o.pickedUp?'✓ Picked up':'Mark picked up')+'</button>');
-      uB.onclick=()=>{ db.togglePreorder(e.o,'pickedUp'); fillPickup(); };
+      uB.onclick=()=>{ if(!e.o.pickedUp && !e.o.paid){ askPIN("Pickup with balance due — confirm",(pin)=>{ db.togglePreorder(e.o,'pickedUp'); logActivity("order","PICKUP","Picked up (balance due)",e.o.name+" · by "+pin); fillPickup(); }); return; } db.togglePreorder(e.o,'pickedUp'); fillPickup(); };
       tags.appendChild(pB); tags.appendChild(uB);
       row.appendChild(tags); card.appendChild(row);
     });
@@ -1105,7 +1139,7 @@ function scrMarketing(s){
 /* ---------- REPORTS ---------- */
 function scrReports(s){
   s.innerHTML="";
-  s.appendChild(head("Reports","Revenue, channels & operations","Export"));
+  s.appendChild(head("Reports","Revenue, channels & operations","🖨 Export / PDF",()=>window.print()));
   const g=el(`<div class="grid" style="grid-template-columns:repeat(3,1fr)"></div>`);
   [["This week revenue",money(11840),"up +9% vs last wk"],["Catering pipeline value",money(31570),"6 open leads"],["Pre-order revenue MTD",money(9420),"up +14%"]].forEach(([t,v,d])=>g.appendChild(el(`<div class="card"><div class="csub">${t}</div><div class="kpi">${v}</div><div class="delta up" style="margin-top:6px">${d}</div></div>`)));
   s.appendChild(g);
@@ -1931,6 +1965,17 @@ function loadState(){ try{
   if(typeof s.KNOTES==="string") KNOTES=s.KNOTES;
 }catch(e){ console.warn("FireDrop: load failed, using defaults",e); } }
 
+/* Cross-tab station sync (prototype-safe, localStorage only). True cross-DEVICE sync
+   is the deferred Supabase step; this keeps multiple tabs/windows on one machine live. */
+let _extPending=false;
+window.addEventListener("storage",(e)=>{
+  if(e.key!==LS_KEY || !e.newValue) return;
+  const ae=document.activeElement;
+  if(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)){ _extPending=true; return; } // don't clobber typing
+  loadState(); if(typeof render==="function") render(); if(typeof toast==="function") toast("↻ Synced from another station");
+});
+window.addEventListener("focusout",()=>{ if(_extPending){ _extPending=false; setTimeout(()=>{ loadState(); if(typeof render==="function") render(); },50); } });
+
 /* ---- DEMO MODE: sample workflows ---- */
 function _uid(pfx){ return pfx+"-"+Date.now().toString().slice(-6); }
 function demoReset(){ try{localStorage.removeItem(LS_KEY);}catch(e){} try{history.replaceState(null,"",location.pathname+location.search);}catch(e){} location.reload(); }
@@ -2024,6 +2069,7 @@ const db = {
     (BBQ.orders||[]).forEach(o=>{ const day=(o.slot||"").indexOf("Sat")>=0?"Saturday":"Friday"; list.push({o,program:"BBQ",programKey:"bbq-weekend",day,items:(o.item||(o.qty+" family pack"+(o.qty>1?"s":""))),slot:o.slot}); });
     return list; },
   togglePreorder(o,field){ o[field]=!o[field]; scheduleSave(); return o[field]; },
+  addPreorder(programKey,data){ const prog = programKey==="bbq-weekend"?BBQ:CUBAN; prog.orders.unshift(data); const q=(+data.qty||1); prog.sold+=q; if(data.paid) prog.revenue+=prog.price*q; scheduleSave(); return data; },
   /* Marketing / reviews / batches (read for now) */
   getCampaigns(){ return CAMPAIGNS; },
   getReviews(){ return REVIEWS; },
