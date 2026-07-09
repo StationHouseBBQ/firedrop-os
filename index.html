@@ -412,11 +412,11 @@ const CUBAN = {
     {t:"11:00–11:30",count:22},{t:"11:30–12:00",count:31},{t:"12:00–12:30",count:26},{t:"12:30–1:00",count:18}
   ],
   orders:[
-    {name:"Alicia Gomez",qty:3,paid:true,slot:"12:00–12:30"},
+    {name:"Alicia Gomez",qty:3,paid:true,slot:"12:00–12:30",lines:[{sku:"cub_smk",qty:2},{sku:"cub_bri",qty:1}]},
     {name:"Marcus Bell",qty:2,paid:true,slot:"11:30–12:00"},
     {name:"Jenna Powell",qty:1,paid:true,slot:"11:00–11:30"},
     {name:"Devin Clark",qty:2,paid:false,slot:"12:30–1:00"},
-    {name:"Sofia Reyes",qty:4,paid:true,slot:"11:30–12:00"},
+    {name:"Sofia Reyes",qty:4,paid:true,slot:"11:30–12:00",lines:[{sku:"cub_smk",qty:3},{sku:"cub_bri",qty:1}]},
     {name:"Will Turner",qty:1,paid:true,slot:"12:00–12:30"},
   ]
 };
@@ -425,9 +425,9 @@ const BBQ = {
   cutoffTarget: Date.now()+ (28*3600)*1000,
   slots:[{t:"Fri 3:00–5:00",count:18},{t:"Fri 5:00–7:00",count:14},{t:"Sat 11:00–1:00",count:22}],
   orders:[
-    {name:"Ray Mueller",qty:1,paid:true,slot:"Sat 11:00–1:00",item:"Brisket + 2 sides"},
-    {name:"Priya Nair",qty:1,paid:true,slot:"Fri 5:00–7:00",item:"Rib rack + pork"},
-    {name:"Tom Hughes",qty:2,paid:false,slot:"Fri 3:00–5:00",item:"Family pack ×2"},
+    {name:"Ray Mueller",qty:1,paid:true,slot:"Sat 11:00–1:00",lines:[{sku:"bris_1",qty:1},{sku:"mac_l",qty:1},{sku:"bns_l",qty:1}]},
+    {name:"Priya Nair",qty:1,paid:true,slot:"Fri 5:00–7:00",lines:[{sku:"rib_f",qty:1},{sku:"pork_1",qty:1}]},
+    {name:"Tom Hughes",qty:2,paid:false,slot:"Fri 3:00–5:00",lines:[{sku:"smp_wlk_56",qty:2}]},
   ]
 };
 
@@ -845,6 +845,97 @@ const CATALOG=[
   ]}
 ];
 const PREP={ prep:{}, raw:{} };   // itemId -> value; persisted via db
+
+/* ---------- SELLABLE MENU (exact Station House menu · single source for pre-orders + forecast) ---------- */
+const MENU=[
+ {grp:"🍽️ Samplers", items:[
+   {sku:"smp_pre_23",name:"Pre-Order Sampler (2–3)",price:59.99,unit:"each",active:true,yield:{brisket:0.25,pork:0.25,ribs:0.25,chicken:1,sausage:1}},
+   {sku:"smp_pre_56",name:"Pre-Order Sampler (5–6)",price:119.99,unit:"each",active:true,yield:{brisket:0.5,pork:0.5,ribs:0.5,chicken:2,sausage:2}},
+   {sku:"smp_wlk_23",name:"Walk-In Sampler (2–3)",price:59.99,unit:"each",active:true,yield:{brisket:0.25,pork:0.25,ribs:0.25,chicken:1,burntends:0.25}},
+   {sku:"smp_wlk_56",name:"Walk-In Sampler (5–6)",price:119.99,unit:"each",active:true,yield:{brisket:0.5,pork:0.5,ribs:0.5,chicken:2,burntends:0.5}}
+ ]},
+ {grp:"🥩 Meats (by cut & weight)", items:[
+   {sku:"bris_1",name:"Brisket (1 lb)",price:36.99,unit:"lb",active:true,yield:{brisket:1}},
+   {sku:"bris_h",name:"Brisket (½ lb)",price:18.50,unit:"½ lb",active:true,yield:{brisket:0.5}},
+   {sku:"pork_1",name:"Pulled Pork (1 lb)",price:19.99,unit:"lb",active:true,yield:{pork:1}},
+   {sku:"pork_h",name:"Pulled Pork (½ lb)",price:9.99,unit:"½ lb",active:true,yield:{pork:0.5}},
+   {sku:"rib_f",name:"Ribs (full rack)",price:46.99,unit:"rack",active:true,yield:{ribs:1}},
+   {sku:"rib_h",name:"Ribs (half rack)",price:23.99,unit:"½ rack",active:true,yield:{ribs:0.5}},
+   {sku:"chx_q",name:"Chicken Leg Quarter",price:7.99,unit:"each",active:true,yield:{chicken:1}},
+   {sku:"saus",name:"Jalapeño Cheddar Sausage",price:5.99,unit:"link",active:true,yield:{sausage:1}},
+   {sku:"be_h",name:"Pork Belly Burnt Ends (½ lb)",price:18.99,unit:"½ lb",active:true,yield:{burntends:0.5}},
+   {sku:"be_1",name:"Pork Belly Burnt Ends (1 lb)",price:36.99,unit:"lb",active:true,yield:{burntends:1}}
+ ]},
+ {grp:"🥪 Cubans", items:[
+   {sku:"cub_smk",name:"Smokin Cuban",price:12.99,unit:"each",active:true,yield:{pork:0.25}},
+   {sku:"cub_bri",name:"Brisket Cuban",price:17.99,unit:"each",active:true,yield:{brisket:0.30}}
+ ]},
+ {grp:"🥗 Sides", items:[
+   {sku:"mac_s",name:"Smoked Gouda Mac (6oz)",price:5.99,unit:"6oz",active:true,yield:{mac:1}},
+   {sku:"mac_l",name:"Smoked Gouda Mac (pint)",price:11.99,unit:"pint",active:true,yield:{mac:2.7}},
+   {sku:"bns_s",name:"Brisket Baked Beans (6oz)",price:5.99,unit:"6oz",active:true,yield:{beans:1}},
+   {sku:"bns_l",name:"Brisket Baked Beans (pint)",price:11.99,unit:"pint",active:true,yield:{beans:2.7}},
+   {sku:"slw_s",name:"Apple Slaw (6oz)",price:5.99,unit:"6oz",active:true,yield:{slaw:1}},
+   {sku:"slw_l",name:"Apple Slaw (pint)",price:11.99,unit:"pint",active:true,yield:{slaw:2.7}}
+ ]},
+ {grp:"➕ Sauces & Retail", items:[
+   {sku:"sauce",name:"BBQ Sauce Jar (any of 6)",price:9.99,unit:"jar",active:true,yield:{}},
+   {sku:"rub",name:"BBQ Rub / Sauce Pint",price:9.99,unit:"pint",active:true,yield:{}},
+   {sku:"tallow",name:"Smoked Brisket Tallow",price:18.99,unit:"each",active:true,yield:{}},
+   {sku:"tshirt",name:"Station House T-Shirt",price:24.99,unit:"each",active:true,yield:{}},
+   {sku:"drink",name:"Drink",price:2.00,unit:"each",active:true,yield:{}}
+ ]}
+];
+const MENU_BY_SKU={}; MENU.forEach(g=>g.items.forEach(it=>MENU_BY_SKU[it.sku]=it));
+const FORECAST_META={brisket:{label:"Brisket",unit:"lb"},pork:{label:"Pulled Pork",unit:"lb"},ribs:{label:"Ribs",unit:"racks"},chicken:{label:"Chicken Quarters",unit:"pcs"},sausage:{label:"Sausage",unit:"links"},burntends:{label:"Pork Belly Burnt Ends",unit:"lb"},mac:{label:"Mac & Cheese",unit:"servings"},beans:{label:"Baked Beans",unit:"servings"},slaw:{label:"Apple Slaw",unit:"servings"}};
+// Roll every pre-order line item up into raw production totals, in the kitchen's own units
+function forecastMeats(){
+  const tot={brisket:0,pork:0,ribs:0,chicken:0,sausage:0,burntends:0,mac:0,beans:0,slaw:0};
+  const add=(y,mult)=>{ if(!y)return; for(const k in y){ if(tot[k]!=null) tot[k]+=y[k]*mult; } };
+  const eat=(arr,prog)=>{ (arr||[]).forEach(o=>{
+    if(Array.isArray(o.lines)&&o.lines.length){ o.lines.forEach(l=>{ const m=MENU_BY_SKU[l.sku]; if(m) add(m.yield,(+l.qty||0)); }); }
+    else { const q=(+o.qty||1); if(prog==="cuban") add({pork:0.25},q); else add({brisket:0.5,pork:0.3,ribs:0.25,chicken:1},q); }
+  }); };
+  eat(CUBAN.orders,"cuban"); eat(BBQ.orders,"bbq");
+  for(const k in tot) tot[k]=Math.round(tot[k]*10)/10;
+  return tot;
+}
+function lineSummary(o){ if(Array.isArray(o.lines)&&o.lines.length){ return o.lines.map(l=>{ const m=MENU_BY_SKU[l.sku]; return l.qty+"× "+(m?m.name:l.sku); }).join(", "); } return null; }
+function ktForecast(s){
+  s.appendChild(el('<div class="csub" style="margin-bottom:10px">Weekly production forecast — summed from every pre-order line item into the kitchen\'s own units. Detailed orders are measured; legacy orders are estimated.</div>'));
+  const f=forecastMeats();
+  const card=el('<div class="card"><div class="between"><h3 style="font-size:15px">Meat &amp; sides forecast</h3><span class="tag ember">Cuban + BBQ pre-orders</span></div></div>');
+  Object.keys(FORECAST_META).forEach(k=>{ const meta=FORECAST_META[k]; card.appendChild(el('<div class="between" style="padding:10px 0;border-top:1px solid var(--line)"><span class="kbig">'+meta.label+'</span><b class="kbig">'+f[k]+' '+meta.unit+'</b></div>')); });
+  s.appendChild(card);
+  s.appendChild(el('<button class="btn sm" style="margin-top:12px" onclick="window.print()">🖨 Print forecast</button>'));
+}
+function orderBuilder(defProg){
+  const lines=[];
+  const opts=MENU.map(g=>'<optgroup label="'+g.grp+'">'+g.items.filter(i=>i.active!==false).map(i=>'<option value="'+i.sku+'">'+i.name+' — $'+i.price.toFixed(2)+'</option>').join('')+'</optgroup>').join('');
+  const ov=el('<div class="pal-ov" id="obov"><div class="pal" style="width:460px;max-width:94vw;max-height:90vh;overflow:auto">'
+   +'<div style="padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700">＋ New detailed pre-order</div>'
+   +'<div style="padding:16px">'
+   +'<input id="obName" class="qin" placeholder="Customer name" style="width:100%;margin-bottom:8px">'
+   +'<select id="obProg" class="qin" style="width:100%;margin-bottom:12px"><option value="cuban-thu">Cuban (Thu)</option><option value="bbq-weekend">BBQ (Fri/Sat)</option></select>'
+   +'<div class="row" style="gap:6px;margin-bottom:8px"><select id="obItem" class="qin" style="flex:1">'+opts+'</select><input id="obQty" class="qin" type="number" value="1" min="1" style="width:58px"><button class="btn sm primary" id="obAdd">Add</button></div>'
+   +'<div id="obLines" style="margin:8px 0"></div>'
+   +'<div class="between" style="border-top:1px solid var(--line);padding-top:10px"><b>Total</b><b id="obTotal">$0.00</b></div>'
+   +'<div class="row" style="gap:8px;margin-top:12px"><button class="btn primary" id="obSave" style="flex:1">Create pre-order</button><button class="btn sm" id="obX">Cancel</button></div>'
+   +'</div></div></div>');
+  document.getElementById("drawer").appendChild(ov);
+  if(defProg) ov.querySelector("#obProg").value=defProg;
+  const linesBox=ov.querySelector("#obLines"), totalEl=ov.querySelector("#obTotal");
+  const redraw=()=>{ linesBox.innerHTML=""; let tot=0; lines.forEach((l,idx)=>{ const m=MENU_BY_SKU[l.sku]; tot+=m.price*l.qty; const r=el('<div class="between" style="padding:6px 0;border-top:1px solid var(--line)"><span>'+l.qty+'× '+m.name+'</span><span class="row" style="gap:8px;align-items:center"><span class="mut2">$'+(m.price*l.qty).toFixed(2)+'</span><button class="btn sm ghost">✕</button></span></div>'); r.querySelector("button").onclick=()=>{ lines.splice(idx,1); redraw(); }; linesBox.appendChild(r); }); totalEl.textContent="$"+tot.toFixed(2); };
+  ov.querySelector("#obAdd").onclick=()=>{ const sku=ov.querySelector("#obItem").value; const q=Math.max(1,+ov.querySelector("#obQty").value||1); const ex=lines.find(l=>l.sku===sku); if(ex)ex.qty+=q; else lines.push({sku,qty:q}); redraw(); };
+  const close=()=>ov.remove(); ov.querySelector("#obX").onclick=close; ov.onclick=e=>{ if(e.target===ov)close(); };
+  ov.querySelector("#obSave").onclick=()=>{ const name=(ov.querySelector("#obName").value||"").trim(); if(!name){toast("Enter a customer name");return;} if(!lines.length){toast("Add at least one item");return;} const pk=ov.querySelector("#obProg").value; const totQty=lines.reduce((a,l)=>a+l.qty,0); db.addPreorder(pk,{name,qty:totQty,paid:false,slot:pk==="bbq-weekend"?"Fri walk-in":"Walk-in",lines:lines.slice()}); logActivity("order","PREORDER","Detailed pre-order added",name+" · "+lines.length+" line(s)"); close(); toast("Pre-order created — "+name); render(); };
+  redraw();
+}
+function menuCard(){
+  const c=el('<div class="card" style="margin-top:16px"><div class="between"><h3>Sellable menu</h3><span id="prepSaved" class="tag green">Auto-saves ✓</span></div><div class="csub">The exact Station House menu — drives detailed pre-orders, the kitchen forecast &amp; the customer page.</div></div>');
+  MENU.forEach(g=>{ c.appendChild(el('<h4 style="margin:14px 0 4px;font-size:13px;color:var(--mut)">'+g.grp+'</h4>')); const t=el('<table><thead><tr><th>Item</th><th>Unit</th><th>Price</th><th>Status</th></tr></thead><tbody></tbody></table>'); const tb=t.querySelector("tbody"); g.items.forEach(it=>{ const active=it.active!==false; const tr=el('<tr'+(active?'':' style="opacity:.5"')+'><td>'+it.name+'</td><td class="muted">'+it.unit+'</td></tr>'); const pt=el('<td></td>'); const inp=el('<input class="qin" type="number" step="0.01" style="width:84px;padding:5px 7px;text-align:right" value="'+it.price+'">'); inp.oninput=e=>{ it.price=+e.target.value||0; scheduleSave(); showPrepSaved(); }; pt.appendChild(inp); tr.appendChild(pt); const st=el('<td></td>'); const b=el('<button class="btn sm '+(active?'':'ghost')+'">'+(active?'Active':'Inactive')+'</button>'); b.onclick=()=>{ it.active=!active; scheduleSave(); showPrepSaved(); render(); }; st.appendChild(b); tr.appendChild(st); tb.appendChild(tr); }); c.appendChild(t); });
+  return c;
+}
 function scrKitchen(s){
   s.innerHTML="";
   const pendingAmend = !KAmendAcked;
@@ -853,11 +944,11 @@ function scrKitchen(s){
   const h=head("Kitchen — Production","Production truth for "+KITCHEN.date+" · no pricing",primaryLabel,primaryFn);
   s.appendChild(h);
   // Sprint 6: Prep Engine sub-tabs (Today view unchanged; new demand-driven tabs added)
-  const ktabs=[["today","Today"],["pit","Pit"],["prep","Prep Count"],["raw","Raw Count"],["preplist","Prep List"],["orderguide","Order Guide"],["weekly","Weekly Board"],["notes","Notes"]];
+  const ktabs=[["today","Today"],["pit","Pit"],["forecast","Forecast"],["prep","Prep Count"],["raw","Raw Count"],["preplist","Prep List"],["orderguide","Order Guide"],["weekly","Weekly Board"],["notes","Notes"]];
   const ktb=el('<div class="otabs"></div>');
   ktabs.forEach(t=>{ const e2=el('<div class="otab '+(KTAB===t[0]?'on':'')+'">'+t[1]+'</div>'); e2.onclick=()=>{KTAB=t[0];render();}; ktb.appendChild(e2); });
   s.appendChild(ktb);
-  if(KTAB!=="today"){ ({pit:ktPit,prep:ktPrepCount,raw:ktRawCount,preplist:ktPrepList,orderguide:ktOrderGuide,weekly:ktWeekly,notes:ktNotes}[KTAB]||ktPrepCount)(s); return; }
+  if(KTAB!=="today"){ ({pit:ktPit,forecast:ktForecast,prep:ktPrepCount,raw:ktRawCount,preplist:ktPrepList,orderguide:ktOrderGuide,weekly:ktWeekly,notes:ktNotes}[KTAB]||ktPrepCount)(s); return; }
   const printArea=el(`<div id="printArea"></div>`);
 
   if(pendingAmend) printArea.appendChild(el(`<div class="card" style="border-color:var(--blue);background:#12203a;margin-bottom:12px"><div class="row" style="gap:10px"><span class="tag blue">⚡ AMENDMENT</span><b>Delgado wedding +2 lb brisket</b><span class="muted" style="margin-left:auto">Since last view · must acknowledge (PIN)</span></div></div>`));
@@ -936,7 +1027,7 @@ function prepGrid(kind){
 }
 function ktPrepCount(s){ s.appendChild(el(prepSavedBar("What's made & on hand"))); s.appendChild(prepGrid("prep")); }
 function ktRawCount(s){ s.appendChild(el(prepSavedBar("Raw ingredient counts on hand"))); s.appendChild(prepGrid("raw")); }
-function prepDemand(){ const d={}; d.cuban=(CUBAN.sold||0); const b=(BBQ.sold||0); d.brisket=Math.round(b*0.6); d.pork=Math.round(b*0.4); d.ribs=Math.round(b*0.2); return d; }
+function prepDemand(){ const f=forecastMeats(); return { cuban:(CUBAN.sold||0), brisket:Math.ceil(f.brisket), pork:Math.ceil(f.pork), ribs:Math.ceil(f.ribs), chicken:Math.ceil(f.chicken), burntends:Math.ceil(f.burntends) }; }
 function ktPrepList(s){
   s.appendChild(el('<div class="csub" style="margin-bottom:10px">Demand-driven — suggested from today\'s programs (Cuban '+(CUBAN.sold||0)+', BBQ '+(BBQ.sold||0)+') and par levels. On-hand comes from Prep Count.</div>'));
   const dem=prepDemand();
@@ -1057,6 +1148,7 @@ function scrPickup(s){
     const data = pk==="bbq-weekend" ? {name,qty,paid:false,slot:"Fri walk-in",item:qty+" family pack"+(qty>1?"s":"")} : {name,qty,paid:false,slot:"Walk-in"};
     db.addPreorder(pk,data); logActivity("order","WALKIN","Walk-in order added",name+" · "+(pk==="bbq-weekend"?"BBQ":"Cuban")); toast("Walk-in added — "+name); render();
   };
+  const detailBtn=el('<button class="btn sm ghost">＋ Detailed order</button>'); detailBtn.onclick=()=>orderBuilder(PICKUP_DAY==="Thursday"?"cuban-thu":"bbq-weekend"); add.querySelector(".row").appendChild(detailBtn);
   s.appendChild(add);
   s.appendChild(el('<div id="pickupList"></div>'));
   fillPickup();
@@ -1249,6 +1341,7 @@ function scrSettings(s){
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Google Ads</span><span class="tag green">Connected</span></div>
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Meta Ads</span><span class="tag green">Connected</span></div></div>`));
   s.appendChild(g);
+  s.appendChild(menuCard());
   s.appendChild(catalogCard());
   s.appendChild(samplerCard());
   s.appendChild(demoSettingsCard());
@@ -2024,7 +2117,7 @@ const LS_KEY="firedrop_os_v5";
 function snapshot(){ return { v:5, ORDERS, ORD, QUOTES, QNUM, ONUM, ACTIVITY, LEADS, TASKS_G, PAYMENTS, KAmendAcked,
   CUBAN:{sold:CUBAN.sold,revenue:CUBAN.revenue,orders:CUBAN.orders},
   BBQ:{sold:BBQ.sold,revenue:BBQ.revenue,orders:BBQ.orders},
-  BATCHES, PREP, CATALOG, KNOTES, SAMPLERS }; }
+  BATCHES, PREP, CATALOG, KNOTES, SAMPLERS, MENU }; }
 function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(snapshot())); }catch(e){} }
 let _saveT; function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveState,300); }
 function loadState(){ try{
@@ -2040,6 +2133,7 @@ function loadState(){ try{
   if(Array.isArray(s.CATALOG)){ s.CATALOG.forEach(g=>{ (g.items||[]).forEach(si=>{ CATALOG.forEach(cg=>cg.items.forEach(it=>{ if(it.id===si.id){ if(si.par!=null)it.par=si.par; if(si.active!=null)it.active=si.active; } })); }); }); }
   if(typeof s.KNOTES==="string") KNOTES=s.KNOTES;
   if(Array.isArray(s.SAMPLERS)){ s.SAMPLERS.forEach((ss,i)=>{ if(SAMPLERS[i]){ if(ss.price!=null)SAMPLERS[i].price=ss.price; if(ss.active!=null)SAMPLERS[i].active=ss.active; } }); }
+  if(Array.isArray(s.MENU)){ s.MENU.forEach(g=>(g.items||[]).forEach(si=>{ const m=MENU_BY_SKU[si.sku]; if(m){ if(si.price!=null)m.price=si.price; if(si.active!=null)m.active=si.active; } })); }
 }catch(e){ console.warn("FireDrop: load failed, using defaults",e); } }
 
 /* Cross-tab station sync (prototype-safe, localStorage only). True cross-DEVICE sync
@@ -2199,8 +2293,8 @@ const db = {
   setCatalogItem(id,field,val){ CATALOG.forEach(g=>g.items.forEach(it=>{ if(it.id===id) it[field]=val; })); scheduleSave(); },
   /* Front counter pre-orders (aggregated from programs) */
   getPreorders(){ const list=[];
-    (CUBAN.orders||[]).forEach(o=>list.push({o,program:"Cuban",programKey:"cuban-thu",day:"Thursday",items:(o.qty+" Cuban"+(o.qty>1?"s":"")),slot:o.slot}));
-    (BBQ.orders||[]).forEach(o=>{ const day=(o.slot||"").indexOf("Sat")>=0?"Saturday":"Friday"; list.push({o,program:"BBQ",programKey:"bbq-weekend",day,items:(o.item||(o.qty+" family pack"+(o.qty>1?"s":""))),slot:o.slot}); });
+    (CUBAN.orders||[]).forEach(o=>list.push({o,program:"Cuban",programKey:"cuban-thu",day:"Thursday",items:(lineSummary(o)||(o.qty+" Cuban"+(o.qty>1?"s":""))),slot:o.slot}));
+    (BBQ.orders||[]).forEach(o=>{ const day=(o.slot||"").indexOf("Sat")>=0?"Saturday":"Friday"; list.push({o,program:"BBQ",programKey:"bbq-weekend",day,items:(lineSummary(o)||o.item||(o.qty+" family pack"+(o.qty>1?"s":""))),slot:o.slot}); });
     return list; },
   togglePreorder(o,field){ o[field]=!o[field]; scheduleSave(); return o[field]; },
   addPreorder(programKey,data){ const prog = programKey==="bbq-weekend"?BBQ:CUBAN; prog.orders.unshift(data); const q=(+data.qty||1); prog.sold+=q; if(data.paid) prog.revenue+=prog.price*q; scheduleSave(); return data; },
