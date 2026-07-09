@@ -917,17 +917,23 @@ const MENU=[
 const MENU_BY_SKU={}; MENU.forEach(g=>g.items.forEach(it=>MENU_BY_SKU[it.sku]=it));
 const FORECAST_META={brisket:{label:"Brisket",unit:"lb"},pork:{label:"Pulled Pork",unit:"lb"},ribs:{label:"Ribs",unit:"racks"},chicken:{label:"Chicken Quarters",unit:"pcs"},sausage:{label:"Sausage",unit:"links"},burntends:{label:"Pork Belly Burnt Ends",unit:"lb"},mac:{label:"Mac & Cheese",unit:"servings"},beans:{label:"Baked Beans",unit:"servings"},slaw:{label:"Apple Slaw",unit:"servings"}};
 // Roll every pre-order line item up into raw production totals, in the kitchen's own units
-function forecastMeats(){
+function forecastFor(arr,prog){
   const tot={brisket:0,pork:0,ribs:0,chicken:0,sausage:0,burntends:0,mac:0,beans:0,slaw:0};
   const add=(y,mult)=>{ if(!y)return; for(const k in y){ if(tot[k]!=null) tot[k]+=y[k]*mult; } };
-  const eat=(arr,prog)=>{ (arr||[]).forEach(o=>{
+  (arr||[]).forEach(o=>{
     if(Array.isArray(o.lines)&&o.lines.length){ o.lines.forEach(l=>{ const m=MENU_BY_SKU[l.sku]; if(m) add(m.yield,(+l.qty||0)); }); }
     else { const q=(+o.qty||1); if(prog==="cuban") add({pork:0.25},q); else add({brisket:0.5,pork:0.3,ribs:0.25,chicken:1},q); }
-  }); };
-  eat(CUBAN.orders,"cuban"); eat(BBQ.orders,"bbq"); eat(SUNDAY.orders,"bbq");
+  });
   for(const k in tot) tot[k]=Math.round(tot[k]*10)/10;
   return tot;
 }
+function forecastMeats(){
+  const tot={brisket:0,pork:0,ribs:0,chicken:0,sausage:0,burntends:0,mac:0,beans:0,slaw:0};
+  [[CUBAN.orders,"cuban"],[BBQ.orders,"bbq"],[SUNDAY.orders,"bbq"]].forEach(([a,p])=>{ const f=forecastFor(a,p); for(const k in tot) tot[k]+=f[k]; });
+  for(const k in tot) tot[k]=Math.round(tot[k]*10)/10;
+  return tot;
+}
+function _progOrders(key){ return key==="cuban-thu"?CUBAN.orders : key==="bbq-weekend"?BBQ.orders : key==="sunday-tailgate"?SUNDAY.orders : []; }
 function lineSummary(o){ if(Array.isArray(o.lines)&&o.lines.length){ return o.lines.map(l=>{ const m=MENU_BY_SKU[l.sku]; return l.qty+"× "+(m?m.name:l.sku); }).join(", "); } return null; }
 function ktForecast(s){
   s.appendChild(el('<div class="csub" style="margin-bottom:10px">Weekly production forecast — summed from every pre-order line item into the kitchen\'s own units. Detailed orders are measured; legacy orders are estimated.</div>'));
@@ -1254,19 +1260,56 @@ function _calParse(str){ if(!str) return null; let d=new Date(str); if(!isNaN(d)
 function calEvents(start,end){
   const evs=[]; const d=new Date(start); d.setHours(0,0,0,0);
   while(d<=end){ const dow=d.getDay(), dt=new Date(d);
-    if(dow===4){ evs.push({date:dt,cat:"cuban",title:"Cuban Thursday pickup",obj:["program","cuban-thu"]}); evs.push({date:dt,cat:"prep",title:"Press Cubans + mojo pork"}); }
-    if(dow===3) evs.push({date:dt,cat:"prep",title:"Cuban prep"});
-    if(dow===5){ evs.push({date:dt,cat:"bbq",title:"BBQ pickup (Fri)",obj:["program","bbq-weekend"]}); evs.push({date:dt,cat:"prep",title:"Smoke start — brisket/pork"}); }
-    if(dow===6) evs.push({date:dt,cat:"bbq",title:"BBQ pickup (Sat)",obj:["program","bbq-weekend"]});
-    if(dow===0){ evs.push({date:dt,cat:"tailgate",title:"Football Sunday pickup",obj:["program","sunday-tailgate"]}); }
-    if(dow===6) evs.push({date:dt,cat:"prep",title:"Sunday smoke"});
+    if(dow===4){ evs.push({date:dt,cat:"cuban",title:"Cuban Thursday pickup",kind:"program",programKey:"cuban-thu",day:"Thursday"}); evs.push({date:dt,cat:"prep",title:"Press Cubans + mojo pork",kind:"prep",prepFor:"cuban-thu"}); }
+    if(dow===3) evs.push({date:dt,cat:"prep",title:"Cuban prep",kind:"prep",prepFor:"cuban-thu"});
+    if(dow===5){ evs.push({date:dt,cat:"bbq",title:"BBQ pickup (Fri)",kind:"program",programKey:"bbq-weekend",day:"Friday"}); evs.push({date:dt,cat:"prep",title:"Smoke start — brisket/pork",kind:"prep",prepFor:"bbq-weekend"}); }
+    if(dow===6) evs.push({date:dt,cat:"bbq",title:"BBQ pickup (Sat)",kind:"program",programKey:"bbq-weekend",day:"Saturday"});
+    if(dow===0) evs.push({date:dt,cat:"tailgate",title:"Football Sunday pickup",kind:"program",programKey:"sunday-tailgate",day:"Sunday"});
+    if(dow===6) evs.push({date:dt,cat:"prep",title:"Sunday smoke",kind:"prep",prepFor:"sunday-tailgate"});
     d.setDate(d.getDate()+1);
   }
-  (db.getOrders()||[]).forEach(o=>{ const full=db.getOrder(o.id)||{}; const dd=_calParse(full.pickup||o.when); if(dd && dd>=start && dd<=end){ dd.setHours(0,0,0,0); evs.push({date:dd,cat:o.type==="Catering"?"catering":"orders",title:(o.type==="Catering"?"Catering — ":o.type+" — ")+o.cust,obj:["order",o.id]}); } });
+  (db.getOrders()||[]).forEach(o=>{ const full=db.getOrder(o.id)||{}; const dd=_calParse(full.pickup||o.when); if(dd && dd>=start && dd<=end){ dd.setHours(0,0,0,0); evs.push({date:dd,cat:o.type==="Catering"?"catering":"orders",title:(o.type==="Catering"?"Catering — ":o.type+" — ")+o.cust,kind:"order",orderId:o.id}); } });
   return evs.filter(e=>CAL_CATS[e.cat]);
 }
+function calDetail(e){
+  const c=CAL_CATMETA[e.cat].color;
+  const dstr=e.date.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+  const ov=el('<div class="pal-ov" id="cdov"><div class="pal" style="width:470px;max-width:94vw;max-height:88vh;overflow:auto"><div style="padding:14px 18px;border-bottom:1px solid var(--line)"><div class="row" style="gap:8px;align-items:center"><span style="display:inline-block;width:11px;height:11px;border-radius:2px;background:'+c+'"></span><b>'+e.title+'</b></div><div class="mut2" style="font-size:12px;margin-top:3px">'+dstr+' · '+CAL_CATMETA[e.cat].label+'</div></div><div id="cdBody" style="padding:16px"></div></div></div>');
+  document.getElementById("drawer").appendChild(ov);
+  const bd=ov.querySelector("#cdBody"); const close=()=>ov.remove(); ov.onclick=ev=>{ if(ev.target===ov) close(); };
+  if(e.kind==="program"){
+    const prog=PROGRAMS[e.programKey];
+    const rows=db.getPreorders().filter(x=>x.programKey===e.programKey && (!e.day || x.day===e.day));
+    bd.appendChild(el('<div class="between" style="margin-bottom:8px"><b>'+rows.length+' pre-order'+(rows.length===1?'':'s')+'</b><span class="mut2" style="font-size:12px">'+(prog?prog.sold+"/"+prog.cap+" sold":"")+'</span></div>'));
+    if(!rows.length) bd.appendChild(el('<div class="csub">No pre-orders yet for this day.</div>'));
+    rows.forEach(x=>{ bd.appendChild(el('<div style="padding:9px 0;border-top:1px solid var(--line)"><div class="between"><b style="font-size:13px">'+x.o.name+'</b><span class="tag '+(x.o.paid?'green':'red')+'">'+(x.o.paid?'Paid':'Balance')+'</span></div><div class="mut2" style="font-size:12px;margin-top:2px">'+x.items+' · '+x.slot+'</div></div>')); });
+    const f=forecastFor(_progOrders(e.programKey), e.programKey==="cuban-thu"?"cuban":"bbq");
+    const fc=el('<div class="card" style="margin-top:12px"><h3 style="font-size:13px">What the kitchen makes for this</h3></div>'); let any=false;
+    Object.keys(FORECAST_META).forEach(k=>{ if(f[k]>0){ any=true; fc.appendChild(el('<div class="between" style="padding:5px 0;border-top:1px solid var(--line)"><span style="font-size:12px">'+FORECAST_META[k].label+'</span><b style="font-size:12px">'+f[k]+' '+FORECAST_META[k].unit+'</b></div>')); } });
+    if(any) bd.appendChild(fc);
+    const b=el('<button class="btn sm primary" style="margin-top:12px;width:100%">Open full manifest →</button>'); b.onclick=()=>{ close(); openObject('program',e.programKey); }; bd.appendChild(b);
+  } else if(e.kind==="prep"){
+    const pk=e.prepFor; const prog=PROGRAMS[pk];
+    bd.appendChild(el('<div class="csub" style="margin-bottom:10px">What to prep for '+(prog?prog.name:"this drop")+' — driven by its pre-orders.</div>'));
+    const f=forecastFor(_progOrders(pk), pk==="cuban-thu"?"cuban":"bbq");
+    const card=el('<div class="card"><h3 style="font-size:13px">Make list</h3></div>'); let any=false;
+    Object.keys(FORECAST_META).forEach(k=>{ if(f[k]>0){ any=true; card.appendChild(el('<div class="between" style="padding:6px 0;border-top:1px solid var(--line)"><span>'+FORECAST_META[k].label+'</span><b>'+f[k]+' '+FORECAST_META[k].unit+'</b></div>')); } });
+    if(!any) card.appendChild(el('<div class="csub">No pre-orders yet — nothing to prep.</div>'));
+    bd.appendChild(card);
+    const b=el('<button class="btn sm primary" style="margin-top:12px;width:100%">Open Kitchen → Forecast →</button>'); b.onclick=()=>{ close(); SCREEN="kitchen"; KTAB="forecast"; renderNav(); render(); }; bd.appendChild(b);
+  } else if(e.kind==="order"){
+    const o=db.getOrder(e.orderId)||{};
+    bd.appendChild(el('<div class="ord-facts"><div class="f"><div class="l">Customer</div><div>'+(o.customer||o.cust||"")+'</div></div><div class="f"><div class="l">When</div><div>'+(o.pickup||"—")+'</div></div><div class="f"><div class="l">Status</div><div>'+(o.status||"")+'</div></div><div class="f"><div class="l">Guests</div><div>'+(o.guests||"—")+'</div></div></div>'));
+    if(o.dietary&&o.dietary.length) bd.appendChild(el('<div class="tag red" style="margin:10px 0">⚠ Dietary: '+o.dietary.join(", ")+'</div>'));
+    bd.appendChild(el('<h3 style="font-size:13px;margin:12px 0 6px">Items</h3>'));
+    (o.items||[]).forEach(it=>bd.appendChild(el('<div style="padding:5px 0;border-top:1px solid var(--line);font-size:13px">'+it.name+' — <b>'+(it.qty||"")+'</b></div>')));
+    if(!(o.items||[]).length) bd.appendChild(el('<div class="csub">See order record for line items.</div>'));
+    if(ROLE==="owner"&&o.total!=null) bd.appendChild(el('<div class="mut2" style="font-size:12px;margin-top:10px">Total '+money(o.total)+' · Balance '+money(Math.max(0,(o.total||0)-(o.paid||0)))+'</div>'));
+    const b=el('<button class="btn sm primary" style="margin-top:12px;width:100%">Open order record →</button>'); b.onclick=()=>{ close(); openObject('order',e.orderId); }; bd.appendChild(b);
+  }
+}
 function _byDay(evs){ const m={}; evs.forEach(e=>{ const k=e.date.toDateString(); (m[k]=m[k]||[]).push(e); }); return m; }
-function _calChip(e){ const c=CAL_CATMETA[e.cat].color; const chip=el('<div class="calev" style="background:'+c+'22;border-left:3px solid '+c+'">'+e.title+'</div>'); if(e.obj) chip.onclick=(ev)=>{ ev.stopPropagation(); openObject(e.obj[0],e.obj[1]); }; return chip; }
+function _calChip(e){ const c=CAL_CATMETA[e.cat].color; const chip=el('<div class="calev" style="background:'+c+'22;border-left:3px solid '+c+'">'+e.title+'</div>'); chip.onclick=(ev)=>{ ev.stopPropagation(); calDetail(e); }; return chip; }
 function calTitle(){ const d=CAL_REF; if(CAL_VIEW==="month") return d.toLocaleDateString('en-US',{month:'long',year:'numeric'}); if(CAL_VIEW==="week"){ const ws=new Date(d); ws.setDate(d.getDate()-d.getDay()); const we=new Date(ws); we.setDate(ws.getDate()+6); return ws.toLocaleDateString('en-US',{month:'short',day:'numeric'})+" – "+we.toLocaleDateString('en-US',{month:'short',day:'numeric'}); } return "Next 2 weeks"; }
 function calShift(dir){ const d=new Date(CAL_REF); if(CAL_VIEW==="month") d.setMonth(d.getMonth()+dir); else d.setDate(d.getDate()+7*dir); CAL_REF=d; render(); }
 function scrCalendar(s){
@@ -1322,7 +1365,7 @@ function calAgenda(s){
   const evs=calEvents(start,end).sort((a,b)=>a.date-b.date); const byd=_byDay(evs);
   const keys=Object.keys(byd).sort((a,b)=>new Date(a)-new Date(b));
   keys.forEach(k=>{ const card=el('<div class="card" style="margin-bottom:10px"><h3 style="font-size:14px">'+new Date(k).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})+'</h3></div>');
-    byd[k].forEach(e=>{ const c=CAL_CATMETA[e.cat].color; const row=el('<div style="padding:9px 0;border-top:1px solid var(--line)'+(e.obj?';cursor:pointer':'')+'"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+c+';margin-right:9px;vertical-align:middle"></span><b style="font-size:13px">'+e.title+'</b> <span class="mut2" style="font-size:11px">· '+CAL_CATMETA[e.cat].label+'</span></div>'); if(e.obj) row.onclick=()=>openObject(e.obj[0],e.obj[1]); card.appendChild(row); });
+    byd[k].forEach(e=>{ const c=CAL_CATMETA[e.cat].color; const row=el('<div style="padding:9px 0;border-top:1px solid var(--line);cursor:pointer"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+c+';margin-right:9px;vertical-align:middle"></span><b style="font-size:13px">'+e.title+'</b> <span class="mut2" style="font-size:11px">· '+CAL_CATMETA[e.cat].label+'</span></div>'); row.onclick=()=>calDetail(e); card.appendChild(row); });
     s.appendChild(card);
   });
   if(!keys.length) s.appendChild(el('<div class="csub">No events in the next two weeks with the selected filters.</div>'));
