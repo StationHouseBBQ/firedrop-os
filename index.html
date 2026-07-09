@@ -373,6 +373,14 @@ const NAV = [
 ];
 const KITCHEN_NAV = ["kitchen","programs"];
 const COUNTER_NAV = ["pickup","packing","programs"];
+// Staff accounts (Manus Admin module · prototype — no real auth)
+let USERS=[
+ {id:"U1",name:"Charles D.",email:"admin@stationhousebbq.com",role:"owner",pin:"1234",device:"Owner phone",active:true},
+ {id:"U2",name:"Sarah M.",email:"sarah@stationhousebbq.com",role:"catering_manager",pin:"2468",device:"Office laptop",active:true},
+ {id:"U3",name:"Pit Team",email:"kitchen@stationhousebbq.com",role:"kitchen",pin:"1111",device:"Kitchen tablet (kiosk)",active:true},
+ {id:"U4",name:"Front Counter",email:"counter@stationhousebbq.com",role:"counter",pin:"2222",device:"Counter iPad (kiosk)",active:true}
+];
+const ROLE_PERMS={owner:"Everything",catering_manager:"Customers, leads, quotes, orders, tasks, comms · reads payments",kitchen:"Production only — no pricing or payments",counter:"Pickup manifest only"};
 
 /* ---------------- SAMPLE DATA ---------------- */
 const STAGES = ["New","Contacted","Qualified","Quote Sent","Quote Viewed","Deposit Paid","Order Locked","In Production","Fulfilled","Follow-up"];
@@ -428,6 +436,15 @@ const BBQ = {
     {name:"Ray Mueller",qty:1,paid:true,slot:"Sat 11:00–1:00",lines:[{sku:"bris_1",qty:1},{sku:"mac_l",qty:1},{sku:"bns_l",qty:1}]},
     {name:"Priya Nair",qty:1,paid:true,slot:"Fri 5:00–7:00",lines:[{sku:"rib_f",qty:1},{sku:"pork_1",qty:1}]},
     {name:"Tom Hughes",qty:2,paid:false,slot:"Fri 3:00–5:00",lines:[{sku:"smp_wlk_56",qty:2}]},
+  ]
+};
+const SUNDAY = {
+  name:"Football Sunday — Firehouse Tailgate", day:"Sunday", cap:70, sold:2, revenue:0, price:59,
+  cutoffTarget: Date.now()+ (52*3600)*1000,
+  slots:[{t:"Sun 11:00–1:00",count:1},{t:"Sun 1:00–3:00",count:1}],
+  orders:[
+    {name:"Derek Foster",qty:1,paid:true,slot:"Sun 11:00–1:00",lines:[{sku:"smp_wlk_56",qty:1},{sku:"bris_1",qty:1}]},
+    {name:"Nina Alvarez",qty:1,paid:false,slot:"Sun 1:00–3:00",lines:[{sku:"rib_f",qty:2},{sku:"mac_l",qty:2}]}
   ]
 };
 
@@ -714,9 +731,9 @@ function scrPrograms(s){
   s.appendChild(head("Programs","Recurring pre-order programs · capacity, sold, remaining, cutoff, waitlist","+ New program"));
   const g=el(`<div class="grid" style="grid-template-columns:1fr 1fr"></div>`);
   const f=(typeof fireDates==="function")?fireDates():null;
-  [CUBAN,BBQ].forEach(p=>{
+  [CUBAN,BBQ,SUNDAY].forEach(p=>{
     const rem=p.cap-p.sold; const pct=p.sold/p.cap*100; const soldOut=rem<=0;
-    const dayLabel = f ? (p===CUBAN ? (f.cuban.label+" · Cuban pickup") : (f.bbqFri.label+" – "+f.bbqSat.label)) : p.day;
+    const dayLabel = f ? (p===CUBAN ? (f.cuban.label+" · Cuban pickup") : p===SUNDAY ? (f.sunday.label+" · Tailgate") : (f.bbqFri.label+" – "+f.bbqSat.label)) : p.day;
     const c=el(`<div class="card"><div class="between"><h3>${p.name}</h3><span class="tag ${soldOut?'red':'ember'}">${soldOut?'SOLD OUT':'Window open'}</span></div>
       <div class="csub">${dayLabel}</div>
       <div class="row" style="gap:22px;margin:4px 0 12px">
@@ -896,7 +913,7 @@ function forecastMeats(){
     if(Array.isArray(o.lines)&&o.lines.length){ o.lines.forEach(l=>{ const m=MENU_BY_SKU[l.sku]; if(m) add(m.yield,(+l.qty||0)); }); }
     else { const q=(+o.qty||1); if(prog==="cuban") add({pork:0.25},q); else add({brisket:0.5,pork:0.3,ribs:0.25,chicken:1},q); }
   }); };
-  eat(CUBAN.orders,"cuban"); eat(BBQ.orders,"bbq");
+  eat(CUBAN.orders,"cuban"); eat(BBQ.orders,"bbq"); eat(SUNDAY.orders,"bbq");
   for(const k in tot) tot[k]=Math.round(tot[k]*10)/10;
   return tot;
 }
@@ -916,7 +933,7 @@ function orderBuilder(defProg){
    +'<div style="padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700">＋ New detailed pre-order</div>'
    +'<div style="padding:16px">'
    +'<input id="obName" class="qin" placeholder="Customer name" style="width:100%;margin-bottom:8px">'
-   +'<select id="obProg" class="qin" style="width:100%;margin-bottom:12px"><option value="cuban-thu">Cuban (Thu)</option><option value="bbq-weekend">BBQ (Fri/Sat)</option></select>'
+   +'<select id="obProg" class="qin" style="width:100%;margin-bottom:12px"><option value="cuban-thu">Cuban (Thu)</option><option value="bbq-weekend">BBQ (Fri/Sat)</option><option value="sunday-tailgate">Football Sunday</option></select>'
    +'<div class="row" style="gap:6px;margin-bottom:8px"><select id="obItem" class="qin" style="flex:1">'+opts+'</select><input id="obQty" class="qin" type="number" value="1" min="1" style="width:58px"><button class="btn sm primary" id="obAdd">Add</button></div>'
    +'<div id="obLines" style="margin:8px 0"></div>'
    +'<div class="between" style="border-top:1px solid var(--line);padding-top:10px"><b>Total</b><b id="obTotal">$0.00</b></div>'
@@ -1119,15 +1136,16 @@ function askPIN(title,cb){
 function _nextDow(dow){ const d=new Date(); const diff=(dow-d.getDay()+7)%7; d.setDate(d.getDate()+diff); d.setHours(0,0,0,0); return d; }
 function _fmtDay(d){ return d.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'}); }
 function fireDates(){
-  const thu=_nextDow(4), fri=_nextDow(5), sat=_nextDow(6);
+  const thu=_nextDow(4), fri=_nextDow(5), sat=_nextDow(6), sun=_nextDow(0);
   const cutoff=(base,days,hh)=>{ const c=new Date(base); c.setDate(c.getDate()-days); c.setHours(hh,0,0,0); return c; };
   const now=Date.now();
   const st=(c)=> now>c.getTime()?"closed":"open";
-  const cCut=cutoff(thu,1,12), bCut=cutoff(fri,1,18);
+  const cCut=cutoff(thu,1,12), bCut=cutoff(fri,1,18), sCut=cutoff(sun,1,17);
   return {
     cuban:{date:thu,label:_fmtDay(thu),cutoff:"Wed 12:00 PM",status:st(cCut)},
     bbqFri:{date:fri,label:_fmtDay(fri),cutoff:"Thu 6:00 PM",status:st(bCut)},
-    bbqSat:{date:sat,label:_fmtDay(sat),cutoff:"Thu 6:00 PM",status:st(bCut)}
+    bbqSat:{date:sat,label:_fmtDay(sat),cutoff:"Thu 6:00 PM",status:st(bCut)},
+    sunday:{date:sun,label:_fmtDay(sun),cutoff:"Sat 5:00 PM",status:st(sCut)}
   };
 }
 function scrPickup(s){
@@ -1138,10 +1156,10 @@ function scrPickup(s){
   const search=el('<input class="qin" placeholder="Search customer…" style="flex:1;min-width:180px">');
   search.value=PICKUP_Q; search.oninput=()=>{ PICKUP_Q=search.value; fillPickup(); };
   ctrl.appendChild(search);
-  ["All","Thursday","Friday","Saturday"].forEach(d=>{ const b=el('<button class="btn sm '+(PICKUP_DAY===d?'primary':'ghost')+'">'+d+'</button>'); b.onclick=()=>{PICKUP_DAY=d;render();}; ctrl.appendChild(b); });
+  ["All","Thursday","Friday","Saturday","Sunday"].forEach(d=>{ const b=el('<button class="btn sm '+(PICKUP_DAY===d?'primary':'ghost')+'">'+d+'</button>'); b.onclick=()=>{PICKUP_DAY=d;render();}; ctrl.appendChild(b); });
   s.appendChild(ctrl);
   // Walk-in quick add (surfaces existing pre-order create; no new payment handling)
-  const add=el('<div class="card" style="margin-bottom:14px;padding:12px 14px"><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><b style="font-size:13px">＋ Walk-in</b><input id="wiName" class="qin" placeholder="Customer name" style="flex:1;min-width:140px"><input id="wiQty" class="qin" type="number" value="1" min="1" style="width:64px"><select id="wiProg" class="qin" style="min-width:130px"><option value="cuban-thu">Cuban (Thu)</option><option value="bbq-weekend">BBQ (Fri/Sat)</option></select><button class="btn sm primary" id="wiAdd">Add order</button></div></div>');
+  const add=el('<div class="card" style="margin-bottom:14px;padding:12px 14px"><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><b style="font-size:13px">＋ Walk-in</b><input id="wiName" class="qin" placeholder="Customer name" style="flex:1;min-width:140px"><input id="wiQty" class="qin" type="number" value="1" min="1" style="width:64px"><select id="wiProg" class="qin" style="min-width:130px"><option value="cuban-thu">Cuban (Thu)</option><option value="bbq-weekend">BBQ (Fri/Sat)</option><option value="sunday-tailgate">Football Sunday</option></select><button class="btn sm primary" id="wiAdd">Add order</button></div></div>');
   add.querySelector("#wiAdd").onclick=()=>{
     const name=(add.querySelector("#wiName").value||"").trim(); const qty=Math.max(1,+add.querySelector("#wiQty").value||1); const pk=add.querySelector("#wiProg").value;
     if(!name){ toast("Enter a customer name"); return; }
@@ -1156,7 +1174,7 @@ function scrPickup(s){
 function fillPickup(){
   const c=document.getElementById("pickupList"); if(!c)return; c.innerHTML="";
   const q=(PICKUP_Q||"").toLowerCase();
-  [["Thursday","Cuban"],["Friday","BBQ"],["Saturday","BBQ"]].forEach(([day,prog])=>{
+  [["Thursday","Cuban"],["Friday","BBQ"],["Saturday","BBQ"],["Sunday","Tailgate"]].forEach(([day,prog])=>{
     if(PICKUP_DAY!=="All" && PICKUP_DAY!==day) return;
     const rows=db.getPreorders().filter(e=>e.day===day && (!q || e.o.name.toLowerCase().includes(q)));
     if(!rows.length) return;
@@ -1185,7 +1203,7 @@ function scrPacking(s){
   s.innerHTML="";
   s.appendChild(head("Packing / Pull Sheet","What to pull & pack by day · tap to check off as bagged","🖨 Print",()=>window.print()));
   const area=el('<div id="printArea"></div>');
-  [["Thursday","Cuban"],["Friday","BBQ"],["Saturday","BBQ"]].forEach(([day,prog])=>{
+  [["Thursday","Cuban"],["Friday","BBQ"],["Saturday","BBQ"],["Sunday","Tailgate"]].forEach(([day,prog])=>{
     const rows=db.getPreorders().filter(e=>e.day===day);
     if(!rows.length) return;
     const totalUnits=rows.reduce((a,r)=>a+(+r.o.qty||1),0);
@@ -1231,6 +1249,11 @@ function scrCalendar(s){
     {label:f.bbqSat.label, tag:'', items:[
       {c:'ember',t:'Fri/Sat BBQ — Saturday pickup',s:'11:00 AM–1:00 PM',obj:['program','bbq-weekend']},
       {c:'blue',t:'Slice + pack to order',s:'Carryover from Friday smoke'}
+    ]},
+    {label:f.sunday.label, tag:stTag(f.sunday.status), items:[
+      {c:'ember',t:'Football Sunday — Tailgate pickup',s:'11:00 AM–3:00 PM · '+(SUNDAY.sold||0)+'/'+SUNDAY.cap+' sold',obj:['program','sunday-tailgate']},
+      {c:'mut2',t:'Order cutoff',s:f.sunday.cutoff},
+      {c:'blue',t:'Smoke for the Sunday crowd',s:'Overnight offset pits'}
     ]}
   ];
   const cats=(db.getOrders()||[]).filter(o=>o.type==='Catering');
@@ -1341,6 +1364,8 @@ function scrSettings(s){
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Google Ads</span><span class="tag green">Connected</span></div>
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Meta Ads</span><span class="tag green">Connected</span></div></div>`));
   s.appendChild(g);
+  s.appendChild(usersCard());
+  s.appendChild(clientPortalCard());
   s.appendChild(menuCard());
   s.appendChild(catalogCard());
   s.appendChild(samplerCard());
@@ -1887,8 +1912,8 @@ function renderCustomerQuote(s,q){
 /* =========================================================
    UNIVERSAL OBJECT ENGINE (Sprint 4)
    ========================================================= */
-CUBAN.id="cuban-thu"; BBQ.id="bbq-weekend";
-const PROGRAMS={"cuban-thu":CUBAN,"bbq-weekend":BBQ};
+CUBAN.id="cuban-thu"; BBQ.id="bbq-weekend"; SUNDAY.id="sunday-tailgate";
+const PROGRAMS={"cuban-thu":CUBAN,"bbq-weekend":BBQ,"sunday-tailgate":SUNDAY};
 const PAYMENTS=[
   {id:"PAY-501",amount:4800,method:"Stripe · deposit (50%)",date:"Aug 26",status:"Captured",orderId:"CAT-1038",customer:"Megan Carter"},
   {id:"PAY-502",amount:2145,method:"Stripe · deposit (30%)",date:"1h ago",status:"Captured",orderId:null,leadId:"L-1041",customer:"Dana Whitfield"},
@@ -2117,7 +2142,8 @@ const LS_KEY="firedrop_os_v5";
 function snapshot(){ return { v:5, ORDERS, ORD, QUOTES, QNUM, ONUM, ACTIVITY, LEADS, TASKS_G, PAYMENTS, KAmendAcked,
   CUBAN:{sold:CUBAN.sold,revenue:CUBAN.revenue,orders:CUBAN.orders},
   BBQ:{sold:BBQ.sold,revenue:BBQ.revenue,orders:BBQ.orders},
-  BATCHES, PREP, CATALOG, KNOTES, SAMPLERS, MENU }; }
+  BATCHES, PREP, CATALOG, KNOTES, SAMPLERS, MENU, USERS,
+  SUNDAY:{sold:SUNDAY.sold,revenue:SUNDAY.revenue,orders:SUNDAY.orders} }; }
 function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(snapshot())); }catch(e){} }
 let _saveT; function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveState,300); }
 function loadState(){ try{
@@ -2134,6 +2160,8 @@ function loadState(){ try{
   if(typeof s.KNOTES==="string") KNOTES=s.KNOTES;
   if(Array.isArray(s.SAMPLERS)){ s.SAMPLERS.forEach((ss,i)=>{ if(SAMPLERS[i]){ if(ss.price!=null)SAMPLERS[i].price=ss.price; if(ss.active!=null)SAMPLERS[i].active=ss.active; } }); }
   if(Array.isArray(s.MENU)){ s.MENU.forEach(g=>(g.items||[]).forEach(si=>{ const m=MENU_BY_SKU[si.sku]; if(m){ if(si.price!=null)m.price=si.price; if(si.active!=null)m.active=si.active; } })); }
+  if(Array.isArray(s.USERS)) repArr(USERS,s.USERS);
+  if(s.SUNDAY){ SUNDAY.sold=s.SUNDAY.sold; SUNDAY.revenue=s.SUNDAY.revenue; repArr(SUNDAY.orders,s.SUNDAY.orders); }
 }catch(e){ console.warn("FireDrop: load failed, using defaults",e); } }
 
 /* Cross-tab station sync (prototype-safe, localStorage only). True cross-DEVICE sync
@@ -2195,6 +2223,52 @@ function samplerCard(){
     tb.appendChild(tr);
   });
   c.appendChild(t); return c;
+}
+function usersCard(){
+  const c=el('<div class="card" style="margin-top:16px"><div class="between"><h3>Users &amp; roles</h3><span id="prepSaved" class="tag green">Auto-saves ✓</span></div><div class="csub">Staff accounts, access, device sessions &amp; PINs. Prototype — no real auth yet.</div></div>');
+  const t=el('<table><thead><tr><th>Name</th><th>Role</th><th>Access</th><th>Device / PIN</th><th>Status</th></tr></thead><tbody></tbody></table>');
+  const tb=t.querySelector("tbody");
+  USERS.forEach((u,i)=>{
+    const active=u.active!==false;
+    const tr=el('<tr'+(active?'':' style="opacity:.5"')+'></tr>');
+    tr.appendChild(el('<td><b>'+u.name+'</b><div class="mut2" style="font-size:11px">'+u.email+'</div></td>'));
+    tr.appendChild(el('<td><span class="tag">'+u.role.replace(/_/g," ")+'</span></td>'));
+    tr.appendChild(el('<td class="muted" style="font-size:12px">'+(ROLE_PERMS[u.role]||"")+'</td>'));
+    tr.appendChild(el('<td class="muted" style="font-size:12px">'+u.device+' · PIN '+u.pin+'</td>'));
+    const st=el('<td></td>');
+    const b=el('<button class="btn sm '+(active?'':'ghost')+'">'+(active?'Active':'Disabled')+'</button>'); b.onclick=()=>{ USERS[i].active=!active; scheduleSave(); showPrepSaved(); render(); }; st.appendChild(b);
+    const rm=el('<button class="btn sm ghost" style="margin-left:6px">✕</button>'); rm.onclick=()=>{ USERS.splice(i,1); scheduleSave(); render(); }; st.appendChild(rm);
+    tr.appendChild(st); tb.appendChild(tr);
+  });
+  c.appendChild(t);
+  const addr=el('<div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap"><input id="nuName" class="qin" placeholder="Name" style="flex:1;min-width:120px"><select id="nuRole" class="qin"><option value="owner">owner</option><option value="catering_manager">catering manager</option><option value="kitchen">kitchen</option><option value="counter">counter</option></select><input id="nuPin" class="qin" placeholder="PIN" style="width:78px"><button class="btn sm primary" id="nuAdd">Add user</button></div>');
+  addr.querySelector("#nuAdd").onclick=()=>{ const n=(addr.querySelector("#nuName").value||"").trim(); if(!n){toast("Enter a name");return;} USERS.push({id:"U"+Date.now().toString().slice(-4),name:n,email:n.toLowerCase().replace(/[^a-z]/g,"")+"@stationhousebbq.com",role:addr.querySelector("#nuRole").value,pin:(addr.querySelector("#nuPin").value||"0000"),device:"Unassigned",active:true}); scheduleSave(); toast("User added — "+n); render(); };
+  c.appendChild(addr);
+  return c;
+}
+function clientPortalCard(){ const c=el('<div class="card" style="margin-top:16px"><h3>Client portal</h3><div class="csub">Customer-facing order lookup — items, pickup time, and paid / prepared / picked-up status.</div></div>'); const b=el('<button class="btn sm primary" style="margin-top:10px">Open customer order lookup</button>'); b.onclick=clientPortal; c.appendChild(b); return c; }
+function clientPortal(){
+  const ov=el('<div class="pal-ov" id="cpov"><div class="pal" style="width:520px;max-width:94vw;max-height:90vh;overflow:auto;background:transparent;border:none;box-shadow:none">'
+   +'<div class="simbar" style="margin-bottom:10px"><span class="st">Client portal preview</span><span class="tag amber">Prototype</span><button class="btn sm ghost" id="cpX" style="margin-left:auto">Close</button></div>'
+   +'<div class="cust-quote"><div class="brand">STATION <span class="a">HOUSE</span> BBQ</div><div class="cq-rule"></div>'
+   +'<h2>Look up your order</h2><div class="cq-sub">Enter your name to see your order status &amp; pickup details</div>'
+   +'<input id="cpSearch" class="qin" placeholder="Your name…" style="width:100%;margin-bottom:12px">'
+   +'<div id="cpRes"></div>'
+   +'<div style="color:#888;font-size:12px;margin-top:14px">Pickup: 5214 N Nebraska Ave, Tampa FL 33603 · (813) 625-1082</div>'
+   +'</div></div></div>');
+  document.getElementById("drawer").appendChild(ov);
+  const close=()=>ov.remove(); ov.querySelector("#cpX").onclick=close; ov.onclick=e=>{ if(e.target===ov)close(); };
+  const box=ov.querySelector("#cpRes"), inp=ov.querySelector("#cpSearch");
+  const badge=(on,txt)=>'<span style="display:inline-block;padding:2px 9px;border-radius:10px;font-size:11px;font-weight:700;margin-right:5px;background:'+(on?'#e8f5e9':'#eee')+';color:'+(on?'#2e7d32':'#999')+'">'+txt+'</span>';
+  const fill=()=>{ const q=(inp.value||"").toLowerCase().trim(); box.innerHTML="";
+    if(!q){ box.innerHTML='<div style="color:#888">Type your name above.</div>'; return; }
+    const pre=db.getPreorders().filter(e=>e.o.name.toLowerCase().includes(q));
+    const cat=(db.getOrders()||[]).filter(o=>(o.cust||"").toLowerCase().includes(q));
+    if(!pre.length && !cat.length){ box.innerHTML='<div style="color:#888">No orders found for "'+q+'". Check spelling or contact us.</div>'; return; }
+    pre.forEach(e=>{ box.appendChild(el('<div style="border-top:1px solid #eee;padding:12px 0"><b>'+e.program+' pre-order · '+e.day+'</b><div style="color:#555;font-size:13px;margin:5px 0">'+e.items+' · '+e.slot+'</div>'+badge(e.o.paid,e.o.paid?'Paid':'Balance due')+badge(e.o.prepared,'Prepared')+badge(e.o.pickedUp,'Picked up')+'</div>')); });
+    cat.forEach(o=>{ box.appendChild(el('<div style="border-top:1px solid #eee;padding:12px 0"><b>'+o.type+' order · '+o.id+'</b><div style="color:#555;font-size:13px;margin:5px 0">'+(o.when||"")+' · '+o.status+'</div></div>')); });
+  };
+  inp.oninput=fill; fill();
 }
 function demoSettingsCard(){ const c=el('<div class="card" style="margin-top:16px"><h3>Demo data & workflows</h3><div class="csub">Prototype · saved to this browser (localStorage) · no backend</div></div>'); const row=el('<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>'); DEMO_ACTIONS.forEach(a=>{ const btn=el('<button class="btn sm '+(a[0].indexOf("Reset")>=0?"red":"")+'">'+a[0]+'</button>'); btn.onclick=a[1]; row.appendChild(btn); }); c.appendChild(row); c.appendChild(el('<div class="hint" style="margin-top:12px">Changes you make (quotes, orders, payments, amendments, kitchen status, tasks, lead stages) are saved locally and survive refresh. “Reset demo data” restores the original sample set.</div>')); return c; }
 function initDemoUI(){ const tb=document.querySelector(".topbar"); if(tb&&!document.getElementById("demopill")){ const pill=el('<span id="demopill" class="demopill">● DEMO MODE</span>'); tb.insertBefore(pill, tb.firstChild); } if(!document.getElementById("demoFab")){ const fab=el('<button id="demoFab" class="demofab">▷ Demo tools</button>'); fab.onclick=openDemoTools; document.body.appendChild(fab); } }
@@ -2295,9 +2369,10 @@ const db = {
   getPreorders(){ const list=[];
     (CUBAN.orders||[]).forEach(o=>list.push({o,program:"Cuban",programKey:"cuban-thu",day:"Thursday",items:(lineSummary(o)||(o.qty+" Cuban"+(o.qty>1?"s":""))),slot:o.slot}));
     (BBQ.orders||[]).forEach(o=>{ const day=(o.slot||"").indexOf("Sat")>=0?"Saturday":"Friday"; list.push({o,program:"BBQ",programKey:"bbq-weekend",day,items:(lineSummary(o)||o.item||(o.qty+" family pack"+(o.qty>1?"s":""))),slot:o.slot}); });
+    (SUNDAY.orders||[]).forEach(o=>list.push({o,program:"Tailgate",programKey:"sunday-tailgate",day:"Sunday",items:(lineSummary(o)||(o.qty+" tailgate pack")),slot:o.slot}));
     return list; },
   togglePreorder(o,field){ o[field]=!o[field]; scheduleSave(); return o[field]; },
-  addPreorder(programKey,data){ const prog = programKey==="bbq-weekend"?BBQ:CUBAN; prog.orders.unshift(data); const q=(+data.qty||1); prog.sold+=q; if(data.paid) prog.revenue+=prog.price*q; scheduleSave(); return data; },
+  addPreorder(programKey,data){ const prog = programKey==="bbq-weekend"?BBQ:programKey==="sunday-tailgate"?SUNDAY:CUBAN; prog.orders.unshift(data); const q=(+data.qty||1); prog.sold+=q; if(data.paid) prog.revenue+=prog.price*q; scheduleSave(); return data; },
   /* Marketing / reviews / batches (read for now) */
   getCampaigns(){ return CAMPAIGNS; },
   getReviews(){ return REVIEWS; },
