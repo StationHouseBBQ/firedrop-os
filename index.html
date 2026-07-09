@@ -307,9 +307,9 @@
     <label class="f">Email</label>
     <input class="f" id="lg-email" value="owner@stationhousebbq.com">
     <label class="f">Password</label>
-    <input class="f" type="password" value="••••••••••">
-    <button class="btn primary" style="width:100%;margin-top:22px;padding:12px" onclick="enterApp()">Enter FireDrop OS</button>
-    <div style="text-align:center;margin-top:14px;font-size:12px;color:var(--mut2)">Prototype · sample data · no live backend</div>
+    <input class="f" id="lg-pass" type="password" value="••••••••••">
+    <button class="btn primary" style="width:100%;margin-top:22px;padding:12px" onclick="doLogin()">Enter FireDrop OS</button>
+    <div id="lg-mode" style="text-align:center;margin-top:14px;font-size:12px;color:var(--mut2)">Prototype · sample data · demo mode</div>
   </div>
 </div>
 
@@ -728,12 +728,37 @@ function scrPrograms(s){
       <div class="progress"><i style="width:${pct}%"></i></div>
       <div class="between" style="margin-top:12px"><span class="muted" style="font-size:12px">Cutoff in <b class="cd" data-t="${p.cutoffTarget}" style="color:var(--ember2)">—</b></span></div>
     </div>`);
-    const b=el(`<button class="btn sm primary" style="margin-top:14px">Open manifest</button>`); b.onclick=()=>openProgram(p);
-    c.appendChild(b);
+    const brow=el('<div class="row" style="gap:8px;margin-top:14px;flex-wrap:wrap"></div>');
+    const b=el(`<button class="btn sm primary">Open manifest</button>`); b.onclick=()=>openProgram(p); brow.appendChild(b);
+    const pv=el('<button class="btn sm ghost">👁 Customer page</button>'); pv.onclick=()=>previewPreorder(p); brow.appendChild(pv);
+    c.appendChild(brow);
     g.appendChild(c);
   });
   s.appendChild(g);
   startCountdowns();
+}
+function previewPreorder(p){
+  const f=(typeof fireDates==="function")?fireDates():null;
+  const dateLabel = f ? (p===CUBAN?f.cuban.label:(f.bbqFri.label+" – "+f.bbqSat.label)) : p.day;
+  const rem=p.cap-p.sold;
+  const samplers=SAMPLERS.filter(x=>x.active!==false).map(sm=>'<div class="between" style="padding:9px 0;border-top:1px solid #eee"><span>'+sm.name+' <span style="color:#888;font-size:12px">· feeds '+sm.feeds+'</span></span><b>'+money(sm.price)+'</b></div>').join("");
+  const slots=(p.slots||[]).map(sl=>'<option>'+sl.t+'</option>').join("");
+  const ov=el('<div class="pal-ov" id="preov"><div class="pal" style="width:520px;max-width:94vw;max-height:90vh;overflow:auto;background:transparent;border:none;box-shadow:none">'
+   +'<div class="simbar" style="margin-bottom:10px"><span class="st">Customer preview</span><span class="tag amber">Prototype · no real payment</span><button class="btn sm ghost" id="preX" style="margin-left:auto">Close</button></div>'
+   +'<div class="cust-quote"><div class="brand">STATION <span class="a">HOUSE</span> BBQ</div><div class="cq-rule"></div>'
+   +'<h2>'+p.name+'</h2><div class="cq-sub">'+dateLabel+' · order before cutoff · '+(rem>0?rem+' spots left':'SOLD OUT — join the waitlist')+'</div>'
+   +'<h3 style="font-size:15px;color:#101214;margin:14px 0 4px">Choose your pack</h3>'+(samplers||'<div style="color:#888">Menu coming soon.</div>')
+   +'<h3 style="font-size:15px;color:#101214;margin:18px 0 4px">Your details</h3>'
+   +'<input class="qin" id="poName" placeholder="Your name" style="width:100%;margin-bottom:8px">'
+   +'<input class="qin" id="poPhone" placeholder="Phone" style="width:100%;margin-bottom:8px">'
+   +'<select class="qin" id="poSlot" style="width:100%;margin-bottom:10px">'+(slots||'<option>Pickup time</option>')+'</select>'
+   +'<button class="btn primary" id="poGo" style="width:100%;padding:12px">'+(rem>0?'Place pre-order':'Join waitlist')+'</button>'
+   +'<div style="text-align:center;color:#888;font-size:12px;margin-top:10px">Prototype preview · deposit &amp; payment are not collected here</div>'
+   +'</div></div></div>');
+  document.getElementById("drawer").appendChild(ov);
+  const close=()=>ov.remove();
+  ov.querySelector("#preX").onclick=close; ov.onclick=e=>{ if(e.target===ov)close(); };
+  ov.querySelector("#poGo").onclick=()=>{ const nm=(ov.querySelector("#poName").value||"").trim()||"Guest"; close(); if(typeof toast==="function") toast("Pre-order preview — "+nm+" (demo · nothing charged)"); };
 }
 function openProgram(p){
   const rem=p.cap-p.sold;
@@ -828,11 +853,11 @@ function scrKitchen(s){
   const h=head("Kitchen — Production","Production truth for "+KITCHEN.date+" · no pricing",primaryLabel,primaryFn);
   s.appendChild(h);
   // Sprint 6: Prep Engine sub-tabs (Today view unchanged; new demand-driven tabs added)
-  const ktabs=[["today","Today"],["prep","Prep Count"],["raw","Raw Count"],["preplist","Prep List"],["orderguide","Order Guide"],["weekly","Weekly Board"],["notes","Notes"]];
+  const ktabs=[["today","Today"],["pit","Pit"],["prep","Prep Count"],["raw","Raw Count"],["preplist","Prep List"],["orderguide","Order Guide"],["weekly","Weekly Board"],["notes","Notes"]];
   const ktb=el('<div class="otabs"></div>');
   ktabs.forEach(t=>{ const e2=el('<div class="otab '+(KTAB===t[0]?'on':'')+'">'+t[1]+'</div>'); e2.onclick=()=>{KTAB=t[0];render();}; ktb.appendChild(e2); });
   s.appendChild(ktb);
-  if(KTAB!=="today"){ ({prep:ktPrepCount,raw:ktRawCount,preplist:ktPrepList,orderguide:ktOrderGuide,weekly:ktWeekly,notes:ktNotes}[KTAB]||ktPrepCount)(s); return; }
+  if(KTAB!=="today"){ ({pit:ktPit,prep:ktPrepCount,raw:ktRawCount,preplist:ktPrepList,orderguide:ktOrderGuide,weekly:ktWeekly,notes:ktNotes}[KTAB]||ktPrepCount)(s); return; }
   const printArea=el(`<div id="printArea"></div>`);
 
   if(pendingAmend) printArea.appendChild(el(`<div class="card" style="border-color:var(--blue);background:#12203a;margin-bottom:12px"><div class="row" style="gap:10px"><span class="tag blue">⚡ AMENDMENT</span><b>Delgado wedding +2 lb brisket</b><span class="muted" style="margin-left:auto">Since last view · must acknowledge (PIN)</span></div></div>`));
@@ -956,6 +981,28 @@ function ktWeekly(s){
   cols.forEach(c=>{ const card=el('<div class="card"><h3 style="font-size:14px">'+c.d+'</h3><div class="csub">'+c.when+'</div></div>'); c.rows.forEach(r=>card.appendChild(el('<div class="between" style="padding:8px 0;border-top:1px solid var(--line)"><span style="font-size:13px">'+r[0]+'</span><b>'+r[1]+'</b></div>'))); board.appendChild(card); });
   s.appendChild(board);
   s.appendChild(el('<button class="btn sm" style="margin-top:12px" onclick="window.print()">🖨 Print weekly board</button>'));
+}
+function ktPit(s){
+  const dem=prepDemand();
+  s.appendChild(el('<div class="csub" style="margin-bottom:10px">One pit timeline for the whole day — every program + catering order, back-scheduled from service. The NOW line moves through the day.</div>'));
+  const card=el('<div class="card"></div>');
+  card.appendChild(el('<div class="between"><h3 style="font-size:15px">Pit timeline — Thursday</h3><span class="tag ember">NOW 4:12 AM</span></div>'));
+  const tasks=[
+    {item:"Pulled Pork",qty:dem.pork+" lb",on:"9:00 PM (Wed)",ready:"9:00 AM",off:"12h",src:"Cuban + BBQ",status:"done"},
+    {item:"Brisket",qty:dem.brisket+" lb",on:"10:00 PM (Wed)",ready:"11:00 AM",off:"13h",src:"BBQ + catering",status:"now"},
+    {item:"Burnt Ends",qty:"from brisket",on:"2:00 AM",ready:"9:00 AM",off:"7h",src:"BBQ",status:"next"},
+    {item:"Ribs",qty:dem.ribs+" racks",on:"6:00 AM",ready:"12:00 PM",off:"6h",src:"BBQ weekend",status:"upcoming"},
+    {item:"Chicken Quarters",qty:"per orders",on:"7:30 AM",ready:"11:00 AM",off:"3.5h",src:"BBQ",status:"upcoming"}
+  ];
+  (db.getOrders()||[]).filter(o=>o.type==="Catering").forEach(o=>tasks.push({item:"Catering — "+o.cust,qty:"see order",on:"back-sched",ready:(o.when||"event"),off:"",src:o.id,status:"upcoming",obj:["order",o.id]}));
+  tasks.forEach(t=>{
+    const tag = t.status==="done"?'<span class="tag green">Done</span>':t.status==="now"?'<span class="tag ember">ON NOW</span>':t.status==="next"?'<span class="tag">Next</span>':'<span class="tag">Upcoming</span>';
+    const row=el('<div class="between" style="padding:12px 0;border-top:1px solid var(--line)'+(t.obj?';cursor:pointer':'')+'"><div><b class="kbig">'+t.item+'</b><div class="mut2" style="font-size:12px">On by '+t.on+' · ready '+t.ready+(t.off?' · '+t.off+' smoke':'')+' · '+t.src+'</div></div><div class="row" style="gap:10px;align-items:center"><span style="font-size:13px">'+t.qty+'</span>'+tag+'</div></div>');
+    if(t.obj) row.onclick=()=>openObject(t.obj[0],t.obj[1]);
+    card.appendChild(row);
+  });
+  s.appendChild(card);
+  s.appendChild(el('<button class="btn sm" style="margin-top:12px" onclick="window.print()">🖨 Print pit sheet</button>'));
 }
 function ktNotes(s){
   s.appendChild(el('<div class="between" style="margin:2px 0 10px"><div class="csub" style="margin:0">Kitchen notes — shared, auto-saved</div><span id="prepSaved" class="tag green">Auto-saves as you type ✓</span></div>'));
@@ -1203,6 +1250,7 @@ function scrSettings(s){
      <div class="between" style="padding:9px 0;border-top:1px solid var(--line)"><span>Meta Ads</span><span class="tag green">Connected</span></div></div>`));
   s.appendChild(g);
   s.appendChild(catalogCard());
+  s.appendChild(samplerCard());
   s.appendChild(demoSettingsCard());
 }
 
@@ -1319,6 +1367,7 @@ function renderOrder(s,id){
   if(!kitchen){ const lb=el('<button class="btn sm">'+(o.locked?'Unlock (owner)':'Enable Kitchen Lock')+'</button>'); lb.onclick=()=>toggleLock(id); acts.appendChild(lb);
     const ab=el('<button class="btn sm">Request Amendment</button>'); ab.onclick=()=>{ORDER_TAB="kitchen";AMEND_OPEN=true;render();}; acts.appendChild(ab); }
   const pb=el('<button class="btn sm ghost">🖨 Print prep sheet</button>'); pb.onclick=()=>printPrep(id); acts.appendChild(pb);
+  if(o.program==="Catering"){ const beo=el('<button class="btn sm ghost">📋 BEO / pull-sheet</button>'); beo.onclick=()=>printBEO(id); acts.appendChild(beo); }
   head.appendChild(acts);
   s.appendChild(head);
 
@@ -1524,6 +1573,21 @@ function printPrep(id){
   pa.appendChild(el('<div style="margin-top:12px;font-size:12px">Packaging: '+o.packaging+'</div>'));
   document.body.appendChild(pa); window.print(); setTimeout(()=>pa.remove(),600);
 }
+function printBEO(id){
+  const o=getOrder(id); if(!o) return;
+  const pa=el('<div id="printArea"></div>');
+  pa.appendChild(el('<div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #000;padding-bottom:8px"><h2 style="margin:0">STATION HOUSE BBQ</h2><div style="font-weight:800">Banquet Event Order</div></div>'));
+  pa.appendChild(el('<div style="margin-top:8px;font-size:13px"><b>'+o.id+'</b> · '+o.customer+(o.company?' · '+o.company:'')+'</div>'));
+  pa.appendChild(el('<div style="font-size:13px;margin-top:2px">Event: '+(o.pickup||'TBD')+' · '+o.guests+(o.program==="Catering"?' guests':' order')+' · '+(o.serviceType||o.program||'')+' · Owner: '+(o.owner||'—')+'</div>'));
+  if(o.dietary&&o.dietary.length) pa.appendChild(el('<div style="font-weight:800;color:#b00;margin-top:6px;border:1px solid #b00;padding:4px 8px;display:inline-block">⚠ DIETARY: '+o.dietary.join(', ')+'</div>'));
+  pa.appendChild(el('<h3 style="margin:16px 0 6px">Menu / Items — kitchen pull-sheet</h3>'));
+  (o.items||[]).forEach(it=>pa.appendChild(el('<div style="padding:5px 0;border-bottom:1px solid #ccc">☐ '+it.name+' — <b>'+(it.qty||'')+'</b></div>')));
+  if(!(o.items||[]).length) pa.appendChild(el('<div style="color:#666">See order record for line items.</div>'));
+  pa.appendChild(el('<h3 style="margin:16px 0 6px">Pack-out</h3><div style="font-size:13px">Packaging: '+(o.packaging||'chafing trays / hot box')+' · confirm counts against prep counts before load.</div>'));
+  if(ROLE==="owner"){ pa.appendChild(el('<h3 style="margin:16px 0 6px">Billing (owner copy)</h3><div style="font-size:13px">Total '+money(o.total)+' · Paid '+money(o.paid)+' · Balance '+money(Math.max(0,o.total-o.paid))+'</div>')); }
+  pa.appendChild(el('<div style="margin-top:18px;font-size:11px;color:#888">Generated from record v'+(o.version||1)+' · regenerate anytime · projection, not a source of truth (R-21).</div>'));
+  document.body.appendChild(pa); window.print(); setTimeout(()=>pa.remove(),600);
+}
 function printLabels(id){
   const o=getOrder(id); const pa=el('<div id="printArea" class="lblsheet"></div>');
   pa.appendChild(el('<h2 style="margin:0 0 10px">Labels — '+o.id+' · '+o.customer+'</h2>'));
@@ -1551,6 +1615,15 @@ const ALACARTE=[
   {name:"Extra sauce (pint)", price:8, cost:2}
 ];
 const SERVICE_FEES={"Drop-off":[0,0],"Delivery + Setup":[150,0],"Full-service":[150,350]};
+// Walk-in Samplers — party-size flat packs (Manus-inspired · editable in Settings · usable in quotes)
+const SAMPLERS=[
+  {name:"Sampler Pack — feeds 5–6", feeds:"5–6", price:64, cost:24, active:true},
+  {name:"Sampler Pack — feeds 8–12", feeds:"8–12", price:110, cost:42, active:true},
+  {name:"Cuban Party Pack — feeds 6–8", feeds:"6–8", price:78, cost:30, active:true},
+  {name:"Pitmaster Feast — feeds 12–16", feeds:"12–16", price:168, cost:64, active:true}
+];
+function qAddSampler(key,i){ const q=QUOTES[key],it=SAMPLERS[i]; let a=q.alacarte.find(x=>x.name===it.name); if(a)a.qty++; else q.alacarte.push({name:it.name,price:it.price,cost:it.cost,qty:1}); render(); }
+function qDecSampler(key,i){ const q=QUOTES[key],it=SAMPLERS[i]; let a=q.alacarte.find(x=>x.name===it.name); if(a){a.qty--; if(a.qty<=0)q.alacarte=q.alacarte.filter(x=>x.name!==it.name);} render(); }
 function parseGuests(t){ const m=(t||"").match(/(\d+)/); return m?+m[1]:100; }
 function quoteLabel(q){ return "Q-"+q.num+" v"+q.version; }
 function quoteTotals(q){
@@ -1645,6 +1718,9 @@ function renderQuote(s,key){
 
   const ala=el('<div class="card" style="margin-top:16px"><h3>A la carte add-ons</h3><div class="csub">Tap + to add extras</div></div>');
   ALACARTE.forEach((it,i)=>{ const qty=qGetAla(q,it.name); const row=el('<div class="qline"><span>'+it.name+'</span><span class="mut2">'+money(it.price)+'</span></div>'); const stp=el('<div class="stepper2"></div>'); if(draft){ if(qty>0){ const m=el('<button>−</button>'); m.onclick=()=>qDecAla(key,i); stp.appendChild(m); } stp.appendChild(el('<b style="min-width:16px;text-align:center">'+qty+'</b>')); const p=el('<button>+</button>'); p.onclick=()=>qAddAla(key,i); stp.appendChild(p); } else stp.appendChild(el('<b>'+qty+'</b>')); row.appendChild(stp); ala.appendChild(row); }); left.appendChild(ala);
+
+  const smp=el('<div class="card" style="margin-top:16px"><h3>Walk-in Samplers</h3><div class="csub">Party-size flat packs · manage in Settings → Menu catalog</div></div>');
+  SAMPLERS.filter(x=>x.active!==false).forEach((it)=>{ const gi=SAMPLERS.indexOf(it); const qty=qGetAla(q,it.name); const row=el('<div class="qline"><span>'+it.name+'</span><span class="mut2">'+money(it.price)+' · feeds '+it.feeds+'</span></div>'); const stp=el('<div class="stepper2"></div>'); if(draft){ if(qty>0){ const m=el('<button>−</button>'); m.onclick=()=>qDecSampler(key,gi); stp.appendChild(m); } stp.appendChild(el('<b style="min-width:16px;text-align:center">'+qty+'</b>')); const p=el('<button>+</button>'); p.onclick=()=>qAddSampler(key,gi); stp.appendChild(p); } else stp.appendChild(el('<b>'+qty+'</b>')); row.appendChild(stp); smp.appendChild(row); }); left.appendChild(smp);
 
   const fees=el('<div class="card" style="margin-top:16px"><h3>Fees, deposit & terms</h3></div>');
   const fg=el('<div class="grid" style="grid-template-columns:1fr 1fr;gap:12px"></div>');
@@ -1948,7 +2024,7 @@ const LS_KEY="firedrop_os_v5";
 function snapshot(){ return { v:5, ORDERS, ORD, QUOTES, QNUM, ONUM, ACTIVITY, LEADS, TASKS_G, PAYMENTS, KAmendAcked,
   CUBAN:{sold:CUBAN.sold,revenue:CUBAN.revenue,orders:CUBAN.orders},
   BBQ:{sold:BBQ.sold,revenue:BBQ.revenue,orders:BBQ.orders},
-  BATCHES, PREP, CATALOG, KNOTES }; }
+  BATCHES, PREP, CATALOG, KNOTES, SAMPLERS }; }
 function saveState(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(snapshot())); }catch(e){} }
 let _saveT; function scheduleSave(){ clearTimeout(_saveT); _saveT=setTimeout(saveState,300); }
 function loadState(){ try{
@@ -1963,6 +2039,7 @@ function loadState(){ try{
   if(s.PREP){ repObj(PREP.prep, s.PREP.prep); repObj(PREP.raw, s.PREP.raw); }
   if(Array.isArray(s.CATALOG)){ s.CATALOG.forEach(g=>{ (g.items||[]).forEach(si=>{ CATALOG.forEach(cg=>cg.items.forEach(it=>{ if(it.id===si.id){ if(si.par!=null)it.par=si.par; if(si.active!=null)it.active=si.active; } })); }); }); }
   if(typeof s.KNOTES==="string") KNOTES=s.KNOTES;
+  if(Array.isArray(s.SAMPLERS)){ s.SAMPLERS.forEach((ss,i)=>{ if(SAMPLERS[i]){ if(ss.price!=null)SAMPLERS[i].price=ss.price; if(ss.active!=null)SAMPLERS[i].active=ss.active; } }); }
 }catch(e){ console.warn("FireDrop: load failed, using defaults",e); } }
 
 /* Cross-tab station sync (prototype-safe, localStorage only). True cross-DEVICE sync
@@ -2012,6 +2089,19 @@ function catalogCard(){
   });
   return c;
 }
+function samplerCard(){
+  const c=el('<div class="card" style="margin-top:16px"><div class="between"><h3>Walk-in Samplers</h3><span id="prepSaved" class="tag green">Auto-saves ✓</span></div><div class="csub">Party-size flat packs — editable here, available in the Quote composer.</div></div>');
+  const t=el('<table><thead><tr><th>Pack</th><th>Feeds</th><th>Price</th><th>Status</th></tr></thead><tbody></tbody></table>');
+  const tb=t.querySelector("tbody");
+  SAMPLERS.forEach((it,i)=>{
+    const active=(it.active!==false);
+    const tr=el('<tr'+(active?'':' style="opacity:.5"')+'><td>'+it.name+'</td><td class="muted">'+it.feeds+'</td></tr>');
+    const priceTd=el('<td></td>'); const inp=el('<input class="qin" type="number" style="width:80px;padding:5px 7px;text-align:right" value="'+it.price+'">'); inp.oninput=(e)=>{ SAMPLERS[i].price=+e.target.value||0; scheduleSave(); showPrepSaved(); }; priceTd.appendChild(inp); tr.appendChild(priceTd);
+    const stTd=el('<td></td>'); const btn=el('<button class="btn sm '+(active?'':'ghost')+'">'+(active?'Active':'Inactive')+'</button>'); btn.onclick=()=>{ SAMPLERS[i].active=!active; scheduleSave(); showPrepSaved(); render(); }; stTd.appendChild(btn); tr.appendChild(stTd);
+    tb.appendChild(tr);
+  });
+  c.appendChild(t); return c;
+}
 function demoSettingsCard(){ const c=el('<div class="card" style="margin-top:16px"><h3>Demo data & workflows</h3><div class="csub">Prototype · saved to this browser (localStorage) · no backend</div></div>'); const row=el('<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div>'); DEMO_ACTIONS.forEach(a=>{ const btn=el('<button class="btn sm '+(a[0].indexOf("Reset")>=0?"red":"")+'">'+a[0]+'</button>'); btn.onclick=a[1]; row.appendChild(btn); }); c.appendChild(row); c.appendChild(el('<div class="hint" style="margin-top:12px">Changes you make (quotes, orders, payments, amendments, kitchen status, tasks, lead stages) are saved locally and survive refresh. “Reset demo data” restores the original sample set.</div>')); return c; }
 function initDemoUI(){ const tb=document.querySelector(".topbar"); if(tb&&!document.getElementById("demopill")){ const pill=el('<span id="demopill" class="demopill">● DEMO MODE</span>'); tb.insertBefore(pill, tb.firstChild); } if(!document.getElementById("demoFab")){ const fab=el('<button id="demoFab" class="demofab">▷ Demo tools</button>'); fab.onclick=openDemoTools; document.body.appendChild(fab); } }
 
@@ -2021,11 +2111,55 @@ function initDemoUI(){ const tb=document.querySelector(".topbar"); if(tb&&!docum
    Later: swap ONLY these internals for Supabase — screens call db.* and never
    touch global arrays directly, so no UI rewrite is needed.
    ========================================================= */
+/* =========================================================
+   SUPABASE BACKEND (Sprint 5C) — reads only, one object at a time.
+   SAFE BY DEFAULT: with url/anon blank, mode stays "demo" (localStorage) and
+   the app behaves exactly as before. Fill url+anon (its OWN firedrop-staging
+   project — never anything Manus uses) to go live. RLS requires an authenticated
+   sign-in, so live reads run after doLogin() authenticates a staff user.
+   ========================================================= */
+const SUPA = { url:"", anon:"", token:"", mode:"demo" };   // mode: "demo" | "staging"
+function _supaBase(){ return SUPA.url.replace(/\/$/,""); }
+async function supaSignIn(email,password){
+  const r=await fetch(_supaBase()+"/auth/v1/token?grant_type=password",{method:"POST",headers:{apikey:SUPA.anon,"Content-Type":"application/json"},body:JSON.stringify({email,password})});
+  if(!r.ok) throw new Error("Auth failed ("+r.status+")");
+  const j=await r.json(); SUPA.token=j.access_token||""; return j;
+}
+async function supaGet(path){
+  const r=await fetch(_supaBase()+"/rest/v1/"+path,{headers:{apikey:SUPA.anon,Authorization:"Bearer "+(SUPA.token||SUPA.anon),Accept:"application/json"}});
+  if(!r.ok) throw new Error("Supabase "+r.status+" on "+path);
+  return r.json();
+}
+function _mapCustomer(c){ return { id:c.id, name:c.name, type:c.company?"Catering":"Catering", phone:c.phone||"—", email:c.email||"—", since:"", spend:+c.lifetime_value||0, orders:0, tags:Array.isArray(c.tags)?c.tags:[], timeline:[] }; }
+async function hydrateCustomers(){
+  const rows=await supaGet("customers?select=*&order=name.asc");
+  if(Array.isArray(rows)){ CUSTOMERS.length=0; rows.forEach(c=>CUSTOMERS.push(_mapCustomer(c))); }
+  return Array.isArray(rows)?rows.length:0;
+}
+async function doLogin(){
+  const email=((document.getElementById("lg-email")||{}).value||"").trim();
+  const pass=((document.getElementById("lg-pass")||{}).value||"");
+  if(SUPA.mode==="staging" && SUPA.url && SUPA.anon){
+    try{
+      await supaSignIn(email,pass);
+      const n=await hydrateCustomers();
+      enterApp();
+      if(typeof toast==="function") toast("Signed in to staging — "+n+" live customers");
+      return;
+    }catch(e){ console.warn("Staging login failed:",e); if(typeof toast==="function") toast("Staging sign-in failed — using demo data"); }
+  }
+  enterApp(); // demo path — unchanged from before
+}
 function _orderRow(r){ const kitchen = r.production==="Picked up"||r.production==="Completed"?"Done": r.production==="Scheduled"?"Scheduled":"Queued"; return {id:r.id,cust:r.customer,type:r.program,status:r.status,amount:r.total,when:r.pickup,kitchen}; }
 const db = {
   /* Customers */
   getCustomers(){ return CUSTOMERS; },
   getCustomer(id){ return CUSTOMERS.find(c=>c.id===id)||null; },
+  /* Supabase staging control (Sprint 5C) — reads only, demo stays default */
+  setStaging(url,anon){ SUPA.url=url||""; SUPA.anon=anon||""; SUPA.mode=(url&&anon)?"staging":"demo"; const m=document.getElementById("lg-mode"); if(m)m.textContent=SUPA.mode==="staging"?"Staging · live Supabase · sign in with a staff account":"Prototype · sample data · demo mode"; return SUPA.mode; },
+  useDemo(){ SUPA.mode="demo"; SUPA.token=""; },
+  dataMode(){ return SUPA.mode; },
+  async refreshCustomers(){ if(SUPA.mode!=="staging") return 0; const n=await hydrateCustomers(); if(typeof render==="function") render(); return n; },
   updateCustomer(id,data){ const c=CUSTOMERS.find(x=>x.id===id); if(c)Object.assign(c,data); db.saveState(); return c; },
   /* Leads */
   getLeads(){ return LEADS; },
