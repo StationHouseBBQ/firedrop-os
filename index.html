@@ -229,6 +229,17 @@
   .pu-main{flex:1;min-width:150px}
   @media(max-width:768px){ .pu-row .btn{flex:1} }
   @media print{ .side,.topbar,.demofab,.demopill,#viewas,.otabs{display:none!important} main{margin:0!important} .stage{padding:0!important} .btn{display:none!important} }
+  .calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+  .calhd{text-align:center;font-size:11px;color:var(--mut2);font-weight:700;padding:4px 0}
+  .calcell{min-height:94px;border:1px solid var(--line);border-radius:6px;padding:4px;background:#16181b;overflow:hidden}
+  .calcell.out{opacity:.4}
+  .calcell.today{border-color:var(--ember);box-shadow:inset 0 0 0 1px var(--ember)}
+  .calcell.wk{min-height:170px}
+  .caldate{font-size:11px;color:var(--mut);font-weight:700;margin-bottom:3px}
+  .calev{font-size:10px;line-height:1.3;padding:2px 5px;border-radius:3px;margin-bottom:2px;color:var(--ink);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .calleg{font-size:12px;padding:5px 11px;border-radius:14px;border:1px solid;background:transparent;color:var(--ink);cursor:pointer;font-weight:600}
+  .calleg.off{opacity:.45}
+  @media(max-width:768px){ .calcell{min-height:62px;padding:2px} .calev{font-size:9px} .calgrid{gap:2px} .caldate{font-size:10px} }
   /* ---------- RESPONSIVE (tablet + mobile) ---------- */
   @media(max-width:1024px){ .grid{grid-template-columns:repeat(2,1fr)!important} }
   @media(max-width:768px){
@@ -1228,44 +1239,93 @@ function scrPacking(s){
   s.appendChild(area);
 }
 
-/* ---------- MASTER CALENDAR (Sprint 6) ---------- */
+/* ---------- MASTER CALENDAR (Sprint 8 — Google-style views + color coding) ---------- */
+let CAL_VIEW="month", CAL_REF=new Date();
+const CAL_CATS={cuban:true,bbq:true,tailgate:true,catering:true,prep:true,orders:true};
+const CAL_CATMETA={
+  cuban:{label:"Cuban pre-orders",color:"#4C8DFF"},
+  bbq:{label:"BBQ pre-orders",color:"#E8590C"},
+  tailgate:{label:"Football Sunday",color:"#B15CE8"},
+  catering:{label:"Catering",color:"#46A758"},
+  prep:{label:"Kitchen prep",color:"#F5A623"},
+  orders:{label:"Orders",color:"#2AA7A0"}
+};
+function _calParse(str){ if(!str) return null; let d=new Date(str); if(!isNaN(d)) return d; const m=String(str).match(/([A-Za-z]{3,9})\s+(\d{1,2})/); if(m){ d=new Date(m[1]+" "+m[2]+", "+(new Date().getFullYear())); if(!isNaN(d)) return d; } return null; }
+function calEvents(start,end){
+  const evs=[]; const d=new Date(start); d.setHours(0,0,0,0);
+  while(d<=end){ const dow=d.getDay(), dt=new Date(d);
+    if(dow===4){ evs.push({date:dt,cat:"cuban",title:"Cuban Thursday pickup",obj:["program","cuban-thu"]}); evs.push({date:dt,cat:"prep",title:"Press Cubans + mojo pork"}); }
+    if(dow===3) evs.push({date:dt,cat:"prep",title:"Cuban prep"});
+    if(dow===5){ evs.push({date:dt,cat:"bbq",title:"BBQ pickup (Fri)",obj:["program","bbq-weekend"]}); evs.push({date:dt,cat:"prep",title:"Smoke start — brisket/pork"}); }
+    if(dow===6) evs.push({date:dt,cat:"bbq",title:"BBQ pickup (Sat)",obj:["program","bbq-weekend"]});
+    if(dow===0){ evs.push({date:dt,cat:"tailgate",title:"Football Sunday pickup",obj:["program","sunday-tailgate"]}); }
+    if(dow===6) evs.push({date:dt,cat:"prep",title:"Sunday smoke"});
+    d.setDate(d.getDate()+1);
+  }
+  (db.getOrders()||[]).forEach(o=>{ const full=db.getOrder(o.id)||{}; const dd=_calParse(full.pickup||o.when); if(dd && dd>=start && dd<=end){ dd.setHours(0,0,0,0); evs.push({date:dd,cat:o.type==="Catering"?"catering":"orders",title:(o.type==="Catering"?"Catering — ":o.type+" — ")+o.cust,obj:["order",o.id]}); } });
+  return evs.filter(e=>CAL_CATS[e.cat]);
+}
+function _byDay(evs){ const m={}; evs.forEach(e=>{ const k=e.date.toDateString(); (m[k]=m[k]||[]).push(e); }); return m; }
+function _calChip(e){ const c=CAL_CATMETA[e.cat].color; const chip=el('<div class="calev" style="background:'+c+'22;border-left:3px solid '+c+'">'+e.title+'</div>'); if(e.obj) chip.onclick=(ev)=>{ ev.stopPropagation(); openObject(e.obj[0],e.obj[1]); }; return chip; }
+function calTitle(){ const d=CAL_REF; if(CAL_VIEW==="month") return d.toLocaleDateString('en-US',{month:'long',year:'numeric'}); if(CAL_VIEW==="week"){ const ws=new Date(d); ws.setDate(d.getDate()-d.getDay()); const we=new Date(ws); we.setDate(ws.getDate()+6); return ws.toLocaleDateString('en-US',{month:'short',day:'numeric'})+" – "+we.toLocaleDateString('en-US',{month:'short',day:'numeric'}); } return "Next 2 weeks"; }
+function calShift(dir){ const d=new Date(CAL_REF); if(CAL_VIEW==="month") d.setMonth(d.getMonth()+dir); else d.setDate(d.getDate()+7*dir); CAL_REF=d; render(); }
 function scrCalendar(s){
   s.innerHTML="";
-  s.appendChild(head("Master Calendar","The week at a glance · programs, pickups, prep & catering events",""));
-  const f=fireDates();
-  const dot=(color)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--'+color+');margin-right:7px;vertical-align:middle"></span>';
-  const stTag=(st)=> st==='open'?'<span class="tag green">Open</span>':'<span class="tag red">Cutoff passed</span>';
-  const days=[
-    {label:f.cuban.label, tag:stTag(f.cuban.status), items:[
-      {c:'ember',t:'Cuban Thursday — pickup',s:'11:00 AM–1:00 PM · '+(CUBAN.sold||0)+'/'+CUBAN.cap+' sold',obj:['program','cuban-thu']},
-      {c:'mut2',t:'Order cutoff',s:f.cuban.cutoff},
-      {c:'blue',t:'Kitchen — press Cubans + mojo pork',s:'Production day',obj:['program','cuban-thu']}
-    ]},
-    {label:f.bbqFri.label, tag:stTag(f.bbqFri.status), items:[
-      {c:'ember',t:'Fri/Sat BBQ — Friday pickup',s:'3:00–7:00 PM · '+(BBQ.sold||0)+'/'+BBQ.cap+' sold',obj:['program','bbq-weekend']},
-      {c:'mut2',t:'Order cutoff',s:f.bbqFri.cutoff},
-      {c:'blue',t:'Smoke start — brisket / pork',s:'Overnight offset pits'}
-    ]},
-    {label:f.bbqSat.label, tag:'', items:[
-      {c:'ember',t:'Fri/Sat BBQ — Saturday pickup',s:'11:00 AM–1:00 PM',obj:['program','bbq-weekend']},
-      {c:'blue',t:'Slice + pack to order',s:'Carryover from Friday smoke'}
-    ]},
-    {label:f.sunday.label, tag:stTag(f.sunday.status), items:[
-      {c:'ember',t:'Football Sunday — Tailgate pickup',s:'11:00 AM–3:00 PM · '+(SUNDAY.sold||0)+'/'+SUNDAY.cap+' sold',obj:['program','sunday-tailgate']},
-      {c:'mut2',t:'Order cutoff',s:f.sunday.cutoff},
-      {c:'blue',t:'Smoke for the Sunday crowd',s:'Overnight offset pits'}
-    ]}
-  ];
-  const cats=(db.getOrders()||[]).filter(o=>o.type==='Catering');
-  if(cats.length){ days.push({label:'Upcoming catering', tag:'', items:cats.map(o=>({c:'green',t:o.cust+(o.type?' · '+o.type:''),s:(o.when||'TBD')+' · '+(o.status||''),obj:['order',o.id]}))}); }
-  const g=el('<div class="grid" style="grid-template-columns:repeat(3,1fr)"></div>');
-  days.forEach(d=>{
-    const card=el('<div class="card"><div class="between"><h3 style="font-size:14px">'+d.label+'</h3>'+(d.tag||'')+'</div></div>');
-    d.items.forEach(it=>{ const row=el('<div style="padding:9px 0;border-top:1px solid var(--line)'+(it.obj?';cursor:pointer':'')+'"><div>'+dot(it.c)+'<b style="font-size:13px">'+it.t+'</b></div><div class="mut2" style="font-size:12px;margin-left:15px">'+it.s+'</div></div>'); if(it.obj){ row.onclick=()=>openObject(it.obj[0],it.obj[1]); } card.appendChild(row); });
-    g.appendChild(card);
+  s.appendChild(head("Master Calendar","Programs, pickups, prep & catering — color-coded · month / week / agenda",""));
+  const ctl=el('<div class="between" style="margin-bottom:12px;flex-wrap:wrap;gap:10px"></div>');
+  const left=el('<div class="row" style="gap:6px;align-items:center"></div>');
+  const prev=el('<button class="btn sm ghost">‹</button>'); prev.onclick=()=>calShift(-1);
+  const next=el('<button class="btn sm ghost">›</button>'); next.onclick=()=>calShift(1);
+  const tdy=el('<button class="btn sm">Today</button>'); tdy.onclick=()=>{ CAL_REF=new Date(); render(); };
+  left.appendChild(prev); left.appendChild(next); left.appendChild(tdy); left.appendChild(el('<b style="margin:0 8px;font-size:15px">'+calTitle()+'</b>'));
+  const views=el('<div class="otabs" style="margin:0"></div>');
+  [["month","Month"],["week","Week"],["agenda","Agenda"]].forEach(v=>{ const t=el('<div class="otab '+(CAL_VIEW===v[0]?'on':'')+'">'+v[1]+'</div>'); t.onclick=()=>{ CAL_VIEW=v[0]; render(); }; views.appendChild(t); });
+  ctl.appendChild(left); ctl.appendChild(views); s.appendChild(ctl);
+  const leg=el('<div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:14px"></div>');
+  leg.appendChild(el('<span class="mut2" style="font-size:12px;align-self:center">Show:</span>'));
+  Object.keys(CAL_CATMETA).forEach(k=>{ const on=CAL_CATS[k], c=CAL_CATMETA[k]; const chip=el('<button class="calleg'+(on?'':' off')+'" style="border-color:'+c.color+'"><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:'+c.color+';margin-right:6px"></span>'+c.label+'</button>'); chip.onclick=()=>{ CAL_CATS[k]=!CAL_CATS[k]; render(); }; leg.appendChild(chip); });
+  s.appendChild(leg);
+  if(CAL_VIEW==="month") calMonth(s); else if(CAL_VIEW==="week") calWeek(s); else calAgenda(s);
+}
+function calMonth(s){
+  const y=CAL_REF.getFullYear(), m=CAL_REF.getMonth();
+  const first=new Date(y,m,1); const gs=new Date(y,m,1-first.getDay());
+  const ge=new Date(gs); ge.setDate(gs.getDate()+41);
+  const byd=_byDay(calEvents(gs,ge));
+  const grid=el('<div class="calgrid"></div>');
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(h=>grid.appendChild(el('<div class="calhd">'+h+'</div>')));
+  const today=new Date(); today.setHours(0,0,0,0);
+  for(let i=0;i<42;i++){ const cd=new Date(gs); cd.setDate(gs.getDate()+i); const inM=cd.getMonth()===m, isT=cd.getTime()===today.getTime();
+    const cell=el('<div class="calcell'+(inM?'':' out')+(isT?' today':'')+'"><div class="caldate">'+cd.getDate()+'</div></div>');
+    const list=byd[cd.toDateString()]||[]; list.slice(0,3).forEach(e=>cell.appendChild(_calChip(e)));
+    if(list.length>3) cell.appendChild(el('<div class="mut2" style="font-size:10px;padding-left:2px">+'+(list.length-3)+' more</div>'));
+    grid.appendChild(cell);
+  }
+  s.appendChild(grid);
+}
+function calWeek(s){
+  const ws=new Date(CAL_REF); ws.setDate(CAL_REF.getDate()-CAL_REF.getDay()); ws.setHours(0,0,0,0);
+  const we=new Date(ws); we.setDate(ws.getDate()+6);
+  const byd=_byDay(calEvents(ws,we));
+  const grid=el('<div class="calgrid"></div>');
+  const today=new Date(); today.setHours(0,0,0,0);
+  const dn=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  for(let i=0;i<7;i++){ const cd=new Date(ws); cd.setDate(ws.getDate()+i); const isT=cd.getTime()===today.getTime();
+    const cell=el('<div class="calcell wk'+(isT?' today':'')+'"><div class="caldate">'+dn[i]+' '+cd.getDate()+'</div></div>');
+    (byd[cd.toDateString()]||[]).forEach(e=>cell.appendChild(_calChip(e)));
+    grid.appendChild(cell);
+  }
+  s.appendChild(grid);
+}
+function calAgenda(s){
+  const start=new Date(); start.setHours(0,0,0,0); const end=new Date(start); end.setDate(start.getDate()+13);
+  const evs=calEvents(start,end).sort((a,b)=>a.date-b.date); const byd=_byDay(evs);
+  const keys=Object.keys(byd).sort((a,b)=>new Date(a)-new Date(b));
+  keys.forEach(k=>{ const card=el('<div class="card" style="margin-bottom:10px"><h3 style="font-size:14px">'+new Date(k).toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'})+'</h3></div>');
+    byd[k].forEach(e=>{ const c=CAL_CATMETA[e.cat].color; const row=el('<div style="padding:9px 0;border-top:1px solid var(--line)'+(e.obj?';cursor:pointer':'')+'"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+c+';margin-right:9px;vertical-align:middle"></span><b style="font-size:13px">'+e.title+'</b> <span class="mut2" style="font-size:11px">· '+CAL_CATMETA[e.cat].label+'</span></div>'); if(e.obj) row.onclick=()=>openObject(e.obj[0],e.obj[1]); card.appendChild(row); });
+    s.appendChild(card);
   });
-  s.appendChild(g);
-  s.appendChild(el('<div class="hint" style="margin-top:14px">Dates auto-advance to the next Thursday / Friday / Saturday. Cutoff status is computed live — no manual date bumping. Prototype: no real orders are placed here.</div>'));
+  if(!keys.length) s.appendChild(el('<div class="csub">No events in the next two weeks with the selected filters.</div>'));
 }
 
 /* ---------- MARKETING ---------- */
